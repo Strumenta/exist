@@ -78,7 +78,7 @@ public class DocumentBuilderReceiver implements ContentHandler, LexicalHandler, 
 
     @Override
     public Document getDocument() {
-        return builder.getDocument();
+        return builder.getMemtree();
     }
 
     public XQueryContext getContext() {

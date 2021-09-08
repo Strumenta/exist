@@ -43,7 +43,7 @@ import java.util.Arrays;
 public class MemTreeBuilder {
 
     private final XQueryContext context;
-    private DocumentImpl doc;
+    private MemtreeImpl memtree;        // TODO(AR) switch to using just Memtree interface
     private short level = 1;
     private int[] prevNodeInLevel;
     private String defaultNamespaceURI = XMLConstants.NULL_NS_URI;
@@ -62,14 +62,13 @@ public class MemTreeBuilder {
     }
 
     /**
-     * Returns the created document object.
+     * Returns the created Memtree.
      *
-     * @return DOCUMENT ME!
+     * @return the memtree
      */
-    public DocumentImpl getDocument() {
-        return doc;
+    public Memtree getMemtree() {
+        return memtree;
     }
-
 
     public XQueryContext getContext() {
         return context;
@@ -77,7 +76,7 @@ public class MemTreeBuilder {
 
 
     public int getSize() {
-        return doc.getSize();
+        return memtree.getSize();
     }
 
 
@@ -85,17 +84,7 @@ public class MemTreeBuilder {
      * Start building the document.
      */
     public void startDocument() {
-        this.doc = new DocumentImpl(context, false);
-    }
-
-
-    /**
-     * Start building the document.
-     *
-     * @param explicitCreation DOCUMENT ME!
-     */
-    public void startDocument(final boolean explicitCreation) {
-        this.doc = new DocumentImpl(context, explicitCreation);
+        this.memtree = new MemtreeImpl(context.getSharedNamePool());
     }
 
 
@@ -148,7 +137,7 @@ public class MemTreeBuilder {
      * @return the node number of the created element
      */
     public int startElement(final QName qname, final Attributes attributes) {
-        final int nodeNr = doc.addNode(Node.ELEMENT_NODE, level, qname);
+        final int nodeNr = memtree.addNode(Node.ELEMENT_NODE, level, qname);
 
         if(attributes != null) {
 
@@ -170,7 +159,7 @@ public class MemTreeBuilder {
 
                     final QName attrQn = new QName(attrLocalName, attrNS, attrPrefix);
                     final int type = getAttribType(attrQn, attributes.getType(i));
-                    doc.addAttribute(nodeNr, attrQn, attributes.getValue(i), type);
+                    memtree.addAttribute(nodeNr, attrQn, attributes.getValue(i), type);
                 }
             }
         }
@@ -184,9 +173,9 @@ public class MemTreeBuilder {
         final int prevNr = prevNodeInLevel[level]; // TODO: remove potential ArrayIndexOutOfBoundsException
 
         if(prevNr > -1) {
-            doc.next[prevNr] = nodeNr;
+            memtree.next[prevNr] = nodeNr;
         }
-        doc.next[nodeNr] = prevNodeInLevel[level - 1];
+        memtree.next[nodeNr] = prevNodeInLevel[level - 1];
         prevNodeInLevel[level] = nodeNr;
         ++level;
         return nodeNr;
@@ -218,42 +207,42 @@ public class MemTreeBuilder {
 
 
     public int addReferenceNode(final NodeProxy proxy) {
-        final int lastNode = doc.getLastNode();
+        final int lastNode = memtree.getLastNode();
 
-        if((lastNode > 0) && (level == doc.getTreeLevel(lastNode))) {
+        if((lastNode > 0) && (level == memtree.getTreeLevel(lastNode))) {
 
-            if((doc.getNodeType(lastNode) == Node.TEXT_NODE) && (proxy.getNodeType() == Node.TEXT_NODE)) {
+            if((memtree.getNodeType(lastNode) == Node.TEXT_NODE) && (proxy.getNodeType() == Node.TEXT_NODE)) {
 
                 // if the last node is a text node, we have to append the
                 // characters to this node. XML does not allow adjacent text nodes.
-                doc.appendChars(lastNode, proxy.getNodeValue());
+                memtree.appendChars(lastNode, proxy.getNodeValue());
                 return lastNode;
             }
 
-            if(doc.getNodeType(lastNode) == NodeImpl.REFERENCE_NODE) {
+            if(memtree.getNodeType(lastNode) == NodeImpl.REFERENCE_NODE) {
 
                 // check if the previous node is a reference node. if yes, check if it is a text node
-                final int p = doc.alpha[lastNode];
+                final int p = memtree.alpha[lastNode];
 
-                if((doc.references[p].getNodeType() == Node.TEXT_NODE) && (proxy.getNodeType() == Node.TEXT_NODE)) {
+                if((memtree.references[p].getNodeType() == Node.TEXT_NODE) && (proxy.getNodeType() == Node.TEXT_NODE)) {
 
                     // found a text node reference. create a new char sequence containing
                     // the concatenated text of both nodes
-                    final String s = doc.references[p].getStringValue() + proxy.getStringValue();
-                    doc.replaceReferenceNode(lastNode, s);
+                    final String s = memtree.references[p].getStringValue() + proxy.getStringValue();
+                    memtree.replaceReferenceNode(lastNode, s);
                     return lastNode;
                 }
             }
         }
-        final int nodeNr = doc.addNode(NodeImpl.REFERENCE_NODE, level, null);
-        doc.addReferenceNode(nodeNr, proxy);
+        final int nodeNr = memtree.addNode(NodeImpl.REFERENCE_NODE, level, null);
+        memtree.addReferenceNode(nodeNr, proxy);
         linkNode(nodeNr);
         return nodeNr;
     }
 
 
     public int addAttribute(final QName qname, final String value) {
-        final int lastNode = doc.getLastNode();
+        final int lastNode = memtree.getLastNode();
 
         //if(0 < lastNode && doc.nodeKind[lastNode] != Node.ELEMENT_NODE) {
         //Definitely wrong !
@@ -261,7 +250,7 @@ public class MemTreeBuilder {
         //} else {
         //lastNode = doc.addAttribute(lastNode, qname, value);
         //}
-        final int nodeNr = doc.addAttribute(lastNode, qname, value, getAttribType(qname, Indexer.ATTR_CDATA_TYPE));
+        final int nodeNr = memtree.addAttribute(lastNode, qname, value, getAttribType(qname, Indexer.ATTR_CDATA_TYPE));
 
         //TODO :
         //1) call linkNode(nodeNr); ?
@@ -279,37 +268,37 @@ public class MemTreeBuilder {
      * @return the node number of the created node
      */
     public int characters(final char[] ch, final int start, final int len) {
-        final int lastNode = doc.getLastNode();
+        final int lastNode = memtree.getLastNode();
 
-        if((lastNode > 0) && (level == doc.getTreeLevel(lastNode))) {
+        if((lastNode > 0) && (level == memtree.getTreeLevel(lastNode))) {
 
-            if(doc.getNodeType(lastNode) == Node.TEXT_NODE) {
+            if(memtree.getNodeType(lastNode) == Node.TEXT_NODE) {
 
                 // if the last node is a text node, we have to append the
                 // characters to this node. XML does not allow adjacent text nodes.
-                doc.appendChars(lastNode, ch, start, len);
+                memtree.appendChars(lastNode, ch, start, len);
                 return lastNode;
             }
 
-            if(doc.getNodeType(lastNode) == NodeImpl.REFERENCE_NODE) {
+            if(memtree.getNodeType(lastNode) == NodeImpl.REFERENCE_NODE) {
 
                 // check if the previous node is a reference node. if yes, check if it is a text node
-                final int p = doc.alpha[lastNode];
+                final int p = memtree.alpha[lastNode];
 
-                if(doc.references[p].getNodeType() == Node.TEXT_NODE) {
+                if(memtree.references[p].getNodeType() == Node.TEXT_NODE) {
 
                     // found a text node reference. create a new char sequence containing
                     // the concatenated text of both nodes
-                    final StringBuilder s = new StringBuilder(doc.references[p].getStringValue());
+                    final StringBuilder s = new StringBuilder(memtree.references[p].getStringValue());
                     s.append(ch, start, len);
-                    doc.replaceReferenceNode(lastNode, s);
+                    memtree.replaceReferenceNode(lastNode, s);
                     return lastNode;
                 }
                 // fall through and add the node below
             }
         }
-        final int nodeNr = doc.addNode(Node.TEXT_NODE, level, null);
-        doc.addChars(nodeNr, ch, start, len);
+        final int nodeNr = memtree.addNode(Node.TEXT_NODE, level, null);
+        memtree.addChars(nodeNr, ch, start, len);
         linkNode(nodeNr);
         return nodeNr;
     }
@@ -326,86 +315,86 @@ public class MemTreeBuilder {
             return -1;
         }
 
-        final int lastNode = doc.getLastNode();
+        final int lastNode = memtree.getLastNode();
 
-        if((lastNode > 0) && (level == doc.getTreeLevel(lastNode))) {
+        if((lastNode > 0) && (level == memtree.getTreeLevel(lastNode))) {
 
-            if((doc.getNodeType(lastNode) == Node.TEXT_NODE) || (doc.getNodeType(lastNode) == Node.CDATA_SECTION_NODE)) {
+            if((memtree.getNodeType(lastNode) == Node.TEXT_NODE) || (memtree.getNodeType(lastNode) == Node.CDATA_SECTION_NODE)) {
 
                 // if the last node is a text node, we have to append the
                 // characters to this node. XML does not allow adjacent text nodes.
-                doc.appendChars(lastNode, s);
+                memtree.appendChars(lastNode, s);
                 return lastNode;
             }
 
-            if(doc.getNodeType(lastNode) == NodeImpl.REFERENCE_NODE) {
+            if(memtree.getNodeType(lastNode) == NodeImpl.REFERENCE_NODE) {
 
                 // check if the previous node is a reference node. if yes, check if it is a text node
-                final int p = doc.alpha[lastNode];
+                final int p = memtree.alpha[lastNode];
 
-                if((doc.references[p].getNodeType() == Node.TEXT_NODE) || (doc.references[p].getNodeType() == Node.CDATA_SECTION_NODE)) {
+                if((memtree.references[p].getNodeType() == Node.TEXT_NODE) || (memtree.references[p].getNodeType() == Node.CDATA_SECTION_NODE)) {
 
                     // found a text node reference. create a new char sequence containing
                     // the concatenated text of both nodes
-                    doc.replaceReferenceNode(lastNode, doc.references[p].getStringValue() + s);
+                    memtree.replaceReferenceNode(lastNode, memtree.references[p].getStringValue() + s);
                     return lastNode;
                 }
                 // fall through and add the node below
             }
         }
-        final int nodeNr = doc.addNode(Node.TEXT_NODE, level, null);
-        doc.addChars(nodeNr, s);
+        final int nodeNr = memtree.addNode(Node.TEXT_NODE, level, null);
+        memtree.addChars(nodeNr, s);
         linkNode(nodeNr);
         return nodeNr;
     }
 
 
     public int comment(final CharSequence data) {
-        final int nodeNr = doc.addNode(Node.COMMENT_NODE, level, null);
-        doc.addChars(nodeNr, data);
+        final int nodeNr = memtree.addNode(Node.COMMENT_NODE, level, null);
+        memtree.addChars(nodeNr, data);
         linkNode(nodeNr);
         return nodeNr;
     }
 
 
     public int comment(final char[] ch, final int start, final int len) {
-        final int nodeNr = doc.addNode(Node.COMMENT_NODE, level, null);
-        doc.addChars(nodeNr, ch, start, len);
+        final int nodeNr = memtree.addNode(Node.COMMENT_NODE, level, null);
+        memtree.addChars(nodeNr, ch, start, len);
         linkNode(nodeNr);
         return nodeNr;
     }
 
 
     public int cdataSection(final CharSequence data) {
-        final int lastNode = doc.getLastNode();
+        final int lastNode = memtree.getLastNode();
 
-        if((lastNode > 0) && (level == doc.getTreeLevel(lastNode))) {
+        if((lastNode > 0) && (level == memtree.getTreeLevel(lastNode))) {
 
-            if((doc.getNodeType(lastNode) == Node.TEXT_NODE) || (doc.getNodeType(lastNode) == Node.CDATA_SECTION_NODE)) {
+            if((memtree.getNodeType(lastNode) == Node.TEXT_NODE) || (memtree.getNodeType(lastNode) == Node.CDATA_SECTION_NODE)) {
 
                 // if the last node is a text node, we have to append the
                 // characters to this node. XML does not allow adjacent text nodes.
-                doc.appendChars(lastNode, data);
+                memtree.appendChars(lastNode, data);
                 return lastNode;
             }
 
-            if(doc.getNodeType(lastNode) == NodeImpl.REFERENCE_NODE) {
+            if(memtree.getNodeType(lastNode) == NodeImpl.REFERENCE_NODE) {
 
                 // check if the previous node is a reference node. if yes, check if it is a text node
-                final int p = doc.alpha[lastNode];
+                final int p = memtree.alpha[lastNode];
 
-                if((doc.references[p].getNodeType() == Node.TEXT_NODE) || (doc.references[p].getNodeType() == Node.CDATA_SECTION_NODE)) {
+                if((memtree.references[p].getNodeType() == Node.TEXT_NODE) || (memtree.references[p].getNodeType() == Node.CDATA_SECTION_NODE)) {
 
                     // found a text node reference. create a new char sequence containing
                     // the concatenated text of both nodes
-                    doc.replaceReferenceNode(lastNode, doc.references[p].getStringValue() + data);
+                    memtree.replaceReferenceNode(lastNode, memtree.references[p].getStringValue() + data);
                     return lastNode;
                 }
                 // fall through and add the node below
             }
         }
-        final int nodeNr = doc.addNode(Node.CDATA_SECTION_NODE, level, null);
-        doc.addChars(nodeNr, data);
+        final int nodeNr = memtree.addNode(Node.CDATA_SECTION_NODE, level, null);
+        memtree.addChars(nodeNr, data);
         linkNode(nodeNr);
         return nodeNr;
     }
@@ -413,8 +402,8 @@ public class MemTreeBuilder {
 
     public int processingInstruction(final String target, final String data) {
         final QName qname = new QName(target, null, null);
-        final int nodeNr = doc.addNode(Node.PROCESSING_INSTRUCTION_NODE, level, qname);
-        doc.addChars(nodeNr, (data == null) ? "" : data);
+        final int nodeNr = memtree.addNode(Node.PROCESSING_INSTRUCTION_NODE, level, qname);
+        memtree.addChars(nodeNr, (data == null) ? "" : data);
         linkNode(nodeNr);
         return nodeNr;
     }
@@ -434,10 +423,10 @@ public class MemTreeBuilder {
     }
 
     public int namespaceNode(final QName qname, final boolean checkNS) {
-        final int lastNode = doc.getLastNode();
+        final int lastNode = memtree.getLastNode();
         boolean addNode = true;
-        if(doc.nodeName != null) {
-            final QName elemQN = doc.nodeName[lastNode];
+        if(memtree.nodeName != null) {
+            final QName elemQN = memtree.nodeName[lastNode];
             if(elemQN != null) {
                 final String elemPrefix = (elemQN.getPrefix() == null) ? XMLConstants.DEFAULT_NS_PREFIX : elemQN.getPrefix();
                 final String elemNs = (elemQN.getNamespaceURI() == null) ? XMLConstants.NULL_NS_URI : elemQN.getNamespaceURI();
@@ -458,7 +447,7 @@ public class MemTreeBuilder {
                 }
             }
         }
-        return (addNode ? doc.addNamespace(lastNode, qname) : -1);
+        return (addNode ? memtree.addNamespace(lastNode, qname) : -1);
     }
 
 
@@ -479,15 +468,15 @@ public class MemTreeBuilder {
         final int prevNr = prevNodeInLevel[level];
 
         if(prevNr > -1) {
-            doc.next[prevNr] = nodeNr;
+            memtree.next[prevNr] = nodeNr;
         }
-        doc.next[nodeNr] = prevNodeInLevel[level - 1];
+        memtree.next[nodeNr] = prevNodeInLevel[level - 1];
         prevNodeInLevel[level] = nodeNr;
     }
 
 
     public void setReplaceAttributeFlag(final boolean replaceAttribute) {
-        doc.replaceAttribute = replaceAttribute;
+        memtree.replaceAttribute = replaceAttribute;
     }
 
     public void setDefaultNamespace(final String defaultNamespaceURI) {

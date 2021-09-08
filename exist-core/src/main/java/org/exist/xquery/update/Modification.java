@@ -42,7 +42,6 @@ import org.exist.dom.persistent.StoredNode;
 import org.exist.dom.memtree.DocumentBuilderReceiver;
 import org.exist.dom.memtree.MemTreeBuilder;
 import org.exist.dom.persistent.NodeHandle;
-import org.exist.security.PermissionDeniedException;
 import org.exist.storage.DBBroker;
 import org.exist.storage.lock.LockManager;
 import org.exist.storage.lock.ManagedDocumentLock;
@@ -202,13 +201,13 @@ public abstract class Modification extends AbstractExpression
                 }
                 if (Type.subTypeOf(item.getType(), Type.NODE)) {
                     if (((NodeValue)item).getImplementationType() == NodeValue.PERSISTENT_NODE) {
-                        final int last = builder.getDocument().getLastNode();
+                        final int last = builder.getMemtree().getLastNode();
                         final NodeProxy p = (NodeProxy) item;
                         serializer.toReceiver(p, false, false);
                         if (p.getNodeType() == Node.ATTRIBUTE_NODE)
-                            {item = builder.getDocument().getLastAttr();}
+                            {item = builder.getMemtree().getLastAttr();}
                         else
-                            {item = builder.getDocument().getNode(last + 1);}
+                            {item = builder.getMemtree().getNode(last + 1);}
                     } else {
                         ((org.exist.dom.memtree.NodeImpl)item).deepCopy();
                     }

@@ -139,7 +139,7 @@ public class Sync extends BasicFunction {
 		} finally {
 			context.popDocumentContext();
 		}
-		return output.getDocument();
+		return output.getMemtree();
 	}
 
 	private void saveCollection(final XmldbURI collectionPath, Path targetDir, final Date startDate, final MemTreeBuilder output) throws PermissionDeniedException, LockException {

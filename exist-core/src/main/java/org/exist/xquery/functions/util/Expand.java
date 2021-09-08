@@ -107,10 +107,10 @@ public class Expand extends BasicFunction {
             final MemTreeBuilder builder = context.getDocumentBuilder();
             final DocumentBuilderReceiver receiver = new DocumentBuilderReceiver(builder, true);
             for (final SequenceIterator i = args[0].iterate(); i.hasNext(); ) {
-                final int nodeNr = builder.getDocument().getLastNode();
+                final int nodeNr = builder.getMemtree().getLastNode();
                 final NodeValue next = (NodeValue) i.nextItem();
                 next.toSAX(context.getBroker(), receiver, serializeOptions);
-                result.add(builder.getDocument().getNode(nodeNr + 1));
+                result.add(builder.getMemtree().getNode(nodeNr + 1));
             }
             return result;
         } catch (final SAXException e) {

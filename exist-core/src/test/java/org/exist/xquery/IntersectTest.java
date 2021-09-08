@@ -186,6 +186,6 @@ public class IntersectTest {
             memtree.endElement();
         memtree.endDocument();
 
-        return memtree.getDocument();
+        return memtree.getMemtree();
     }
 }

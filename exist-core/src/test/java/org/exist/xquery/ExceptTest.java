@@ -151,6 +151,6 @@ public class ExceptTest {
             memtree.endElement();
         memtree.endDocument();
 
-        return memtree.getDocument();
+        return memtree.getMemtree();
     }
 }

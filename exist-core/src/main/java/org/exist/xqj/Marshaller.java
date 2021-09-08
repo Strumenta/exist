@@ -305,11 +305,11 @@ public class Marshaller {
         }
         builder.endDocument();
         if (rootType == Type.DOCUMENT)
-            {return builder.getDocument();}
+            {return builder.getMemtree();}
         else if (rootType == Type.ELEMENT)
-            {return (NodeImpl) builder.getDocument().getDocumentElement();}
+            {return (NodeImpl) builder.getMemtree().getDocumentElement();}
         else
-            {return (NodeImpl) builder.getDocument().getFirstChild();}
+            {return (NodeImpl) builder.getMemtree().getFirstChild();}
     }
     
     
@@ -394,7 +394,7 @@ public class Marshaller {
             if (finish) {break;}
         }
         builder.endDocument();
-        return builder.getDocument().getDocumentElement();
+        return builder.getMemtree().getDocumentElement();
     }
 }
 
