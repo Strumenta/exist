@@ -307,13 +307,5 @@ public class LocalCollectionManagementService extends AbstractLocalService imple
     @Override
     public void setProperty(final String property, final String value) {
     }
-	
-    @Override
-    public void runCommand(final String[] params) throws XMLDBException {
-    	withDb((broker, transaction) -> {
-            org.exist.plugin.command.Commands.command(XmldbURI.create(collection.getPath()), params);
-            return null;
-        });
-    }
 }
 

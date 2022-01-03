@@ -46,8 +46,6 @@ import org.exist.indexing.IndexManager;
 import org.exist.management.AgentFactory;
 import org.exist.numbering.DLNFactory;
 import org.exist.numbering.NodeIdFactory;
-import org.exist.plugin.PluginsManager;
-import org.exist.plugin.PluginsManagerImpl;
 import org.exist.repo.ClasspathHelper;
 import org.exist.repo.ExistRepository;
 import org.exist.scheduler.Scheduler;
@@ -313,12 +311,6 @@ public class BrokerPool extends BrokerPools implements BrokerPoolConstants, Data
     private SecurityManager securityManager = null;
 
     /**
-     * The plugin manager.
-     */
-    private PluginsManagerImpl pluginManager = null;
-
-
-    /**
      * The global notification service used to subscribe
      * to document updates.
      */
@@ -512,9 +504,6 @@ public class BrokerPool extends BrokerPools implements BrokerPoolConstants, Data
         servicesManager.register(new ClasspathHelper());
 
         this.indexManager = servicesManager.register(new IndexManager(this));
-
-        //prepare those services that require system (single-user) mode
-        this.pluginManager = servicesManager.register(new PluginsManagerImpl());
 
         //Get a manager to handle further collections configuration
         this.collectionConfigurationManager = servicesManager.register(new CollectionConfigurationManager(this));
@@ -1504,10 +1493,6 @@ public class BrokerPool extends BrokerPools implements BrokerPoolConstants, Data
                 }
                 cacheManager.checkCaches();
 
-                if (pluginManager != null) {
-                    pluginManager.sync(broker);
-                }
-
                 lastMajorSync = System.currentTimeMillis();
                 if (LOG.isDebugEnabled()) {
                     notificationService.debug();
@@ -1948,10 +1933,6 @@ public class BrokerPool extends BrokerPools implements BrokerPoolConstants, Data
     @Override
     public void registerCollectionTrigger(final Class<? extends CollectionTrigger> clazz) {
         collectionTriggers.add(new CollectionTriggerProxy(clazz));
-    }
-
-    public PluginsManager getPluginsManager() {
-        return pluginManager;
     }
 
     public net.sf.saxon.Configuration getSaxonConfiguration() {

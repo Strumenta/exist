@@ -81,8 +81,6 @@ public class SystemImportHandler extends DefaultHandler {
     private final DBBroker broker;
     @Nullable private final Txn transaction;
     
-    private final org.exist.backup.RestoreHandler rh;
-    
     private final RestoreListener listener;
     private final BackupDescriptor descriptor;
     
@@ -104,8 +102,6 @@ public class SystemImportHandler extends DefaultHandler {
         this.transaction = transaction;
         this.listener = listener;
         this.descriptor = descriptor;
-        
-        rh = broker.getDatabase().getPluginsManager().getRestoreHandler();
     }
 
     /**
@@ -122,7 +118,6 @@ public class SystemImportHandler extends DefaultHandler {
     @Override
     public void startDocument() throws SAXException {
         listener.processingDescriptor(descriptor.getSymbolicPath());
-        rh.startDocument();
     }
     
     /**
@@ -154,8 +149,6 @@ public class SystemImportHandler extends DefaultHandler {
             restoreDeletedEntry(atts);
         } else if("ace".equals(localName)) {
             addACEToDeferredPermissions(atts);
-        } else {
-        	rh.startElement(namespaceURI, localName, qName, atts);
         }
     }
     
@@ -164,7 +157,6 @@ public class SystemImportHandler extends DefaultHandler {
         if(namespaceURI.equals(Namespaces.EXIST_NS) && ("collection".equals(localName) || "resource".equals(localName))) {
             setDeferredPermissions();
         }
-        rh.endElement(namespaceURI, localName, qName);
         super.endElement(namespaceURI, localName, qName);
     }
     
@@ -212,8 +204,6 @@ public class SystemImportHandler extends DefaultHandler {
         	try(final Txn transaction = beginTransaction()) {
         		currentCollection = broker.getOrCreateCollection(transaction, collUri);
         		
-        		rh.startCollectionRestore(currentCollection, atts);
-        		
                 broker.saveCollection(transaction, currentCollection);
 
                 transaction.commit();
@@ -234,8 +224,6 @@ public class SystemImportHandler extends DefaultHandler {
             } else {
                 deferredPermission = new CollectionDeferredPermission(listener, currentCollection.getURI(), owner, group, Integer.parseInt(mode, 8));
             }
-
-            rh.endCollectionRestore(currentCollection);
             
             return deferredPermission;
             
@@ -390,15 +378,11 @@ public class SystemImportHandler extends DefaultHandler {
 	                	resource.setDocType(docType);
 	                }
 
-					rh.startDocumentRestore(resource, atts);
-
 					currentCollection.store(transaction, broker, info, is);
 	
 				} else {
 					// store as binary resource
 					resource = currentCollection.validateBinaryResource(transaction, broker, docUri);
-					
-					rh.startDocumentRestore(resource, atts);
 
 					resource = currentCollection.addBinaryResource(transaction, broker, (BinaryDocument)resource, is.getByteStream(), mimetype, is.getByteStreamLength() , date_created, date_modified);
 				}
@@ -412,8 +396,6 @@ public class SystemImportHandler extends DefaultHandler {
                 } else {
                     deferredPermission = new ResourceDeferredPermission(listener, resource.getURI(), owner, group, Integer.parseInt(perms, 8));
                 }
-                
-                rh.endDocumentRestore(resource);
 
                 listener.restoredResource(name);
                 

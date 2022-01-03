@@ -46,7 +46,6 @@ import javax.xml.transform.OutputKeys;
 import org.apache.tools.ant.DirectoryScanner;
 import org.exist.SystemProperties;
 import org.exist.dom.persistent.XMLUtil;
-import org.exist.security.ACLPermission;
 import org.exist.security.Account;
 import org.exist.security.Permission;
 import org.exist.security.SecurityManager;
@@ -176,18 +175,6 @@ public class InteractiveClient {
 
     protected ClientFrame frame;
 
-    //XXX:make pluggable
-    private static boolean havePluggableCommands = false;
-
-    static {
-        try {
-            Class.forName("org.exist.plugin.command.Commands");
-            havePluggableCommands = true;
-        } catch (final Exception e) {
-            havePluggableCommands = false;
-        }
-    }
-
     //*************************************
 
     private CommandlineOptions options;
@@ -231,10 +218,6 @@ public class InteractiveClient {
         messageln("                     the current collection.");
         messageln("lock resource        put a write lock on the specified resource.");
         messageln("unlock resource      remove a write lock from the specified resource.");
-        if (havePluggableCommands) {
-            messageln("svn                  subversion command-line client.");
-            messageln("threads              threads debug information.");
-        }
         messageln("quit                 quit the program");
     }
 
@@ -1122,19 +1105,6 @@ public class InteractiveClient {
             } else if (args[0].equalsIgnoreCase("quit")) {
                 return false;
                 //XXX:make it pluggable
-            } else if (havePluggableCommands) {
-                final EXistCollectionManagementService mgtService = (EXistCollectionManagementService) current.getService("CollectionManagementService", "1.0");
-                try {
-                    mgtService.runCommand(args);
-                } catch(final XMLDBException e) {
-                    if(e.getCause() != null && e.getCause().getClass().getName().equals("org.exist.plugin.command.CommandNotFoundException")) {
-                        messageln("unknown command: '" + args[0] + "'");
-                        return true;
-                    } else {
-                        throw e;
-                    }
-                }
-                //****************************************************************
             } else {
                 messageln("unknown command: '" + args[0] + "'");
                 return true;

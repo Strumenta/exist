@@ -26,8 +26,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.xmlrpc.client.XmlRpcClient;
-import org.apache.xmlrpc.XmlRpcException;
 import org.w3c.dom.Document;
 import org.xmldb.api.base.Collection;
 import org.xmldb.api.base.ErrorCodes;
@@ -286,14 +284,6 @@ public class RemoteCollectionManagementService extends AbstractRemote implements
         params.add(newName.toString());
         params.add(preserveType);
         collection.execute("copyResource", params);
-    }
-
-    @Override
-    public void runCommand(final String[] cmdParams) throws XMLDBException {
-        final List<Object> params = new ArrayList<>();
-        params.add(collection.getPathURI());
-        params.add(cmdParams);
-        collection.execute("runCommand", params);
     }
 }
 
