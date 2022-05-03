@@ -277,6 +277,14 @@ function mt:merge-duplicate-keys-combine-has-duplicates-sequence-order() {
 };
 
 declare
+    %test:assertEquals("Saturday","Caturday","Maturday", "Caturday", "Zaturday")
+function mt:merge-duplicate-keys-combine-3-has-duplicates-sequence-order() {
+    let $specialWeek := map:merge(($mt:integerKeys, map { 7 : ("Caturday","Maturday") }, map { 7 : ("Caturday","Zaturday") }), map { "duplicates": "combine" })
+    return
+        ($specialWeek(7))
+};
+
+declare
     %test:assertEquals("Caturday","Saturday")
 function mt:merge-duplicate-keys-combine-has-duplicates-atomic() {
     let $specialWeek := map:merge((map { 7 : ("Caturday") }, $mt:integerKeys), map { "duplicates": "combine" })
