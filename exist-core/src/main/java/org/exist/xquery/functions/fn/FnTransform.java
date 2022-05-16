@@ -76,14 +76,14 @@ import static org.exist.xquery.functions.fn.FnTransform.Option.*;
 public class FnTransform extends BasicFunction {
 
     private static final Logger LOGGER =  LogManager.getLogger(FnTransform.class);
-    private static final ErrorListenerLog4jAdapter ERROR_LISTENER = new ErrorListenerLog4jAdapter(LOGGER);
+    private static final ErrorListenerLog4jAdapter ERROR_LISTENER = new ErrorListenerLog4jAdapter(FnTransform.LOGGER);
 
     private static final javax.xml.namespace.QName QN_XSL_STYLESHEET = new javax.xml.namespace.QName(XSL_NS, "stylesheet");
     private static final javax.xml.namespace.QName QN_VERSION = new javax.xml.namespace.QName("version");
 
     private static final String FS_TRANSFORM_NAME = "transform";
     static final FunctionSignature FS_TRANSFORM = functionSignature(
-            FS_TRANSFORM_NAME,
+            FnTransform.FS_TRANSFORM_NAME,
             "Invokes a transformation using a dynamically-loaded XSLT stylesheet.",
             returnsOptMany(Type.MAP, "The result of the transformation is returned as a map. " +
                     "There is one entry in the map for the principal result document, and one for each " +
@@ -98,7 +98,7 @@ public class FnTransform extends BasicFunction {
 
     //TODO(AR) if you want Saxon-EE features we need to set those in the Configuration
     private static final Configuration SAXON_CONFIGURATION = new Configuration();
-    private static final Processor SAXON_PROCESSOR = new Processor(SAXON_CONFIGURATION);
+    private static final Processor SAXON_PROCESSOR = new Processor(FnTransform.SAXON_CONFIGURATION);
 
     private static final long XXHASH64_SEED = 0x2245a28e;
     private static final XXHash64 XX_HASH_64 = XXHashFactory.fastestInstance().hash64();
@@ -119,7 +119,7 @@ public class FnTransform extends BasicFunction {
         final Tuple2<String, Source> xsltSource = getStylesheet(options);
 
         final float xsltVersion;
-        final Optional<DecimalValue> explicitXsltVersion = XSLT_VERSION.get(options);
+        final Optional<DecimalValue> explicitXsltVersion = FnTransform.XSLT_VERSION.get(options);
         if (explicitXsltVersion.isPresent()) {
             try {
                 xsltVersion = explicitXsltVersion.get().getFloat();
@@ -131,7 +131,7 @@ public class FnTransform extends BasicFunction {
         }
 
         final String stylesheetBaseUri;
-        final Optional<StringValue> explicitStylesheetBaseUri = STYLESHEET_BASE_URI.get(xsltVersion, options);
+        final Optional<StringValue> explicitStylesheetBaseUri = FnTransform.STYLESHEET_BASE_URI.get(xsltVersion, options);
         if (explicitStylesheetBaseUri.isPresent()) {
             stylesheetBaseUri = explicitStylesheetBaseUri.get().getStringValue();
         } else {
@@ -139,16 +139,16 @@ public class FnTransform extends BasicFunction {
         }
 
         //TODO(AR) Saxon recommends to use a <code>StreamSource</code> or <code>SAXSource</code> instead of DOMSource for performance
-        final Source sourceNode = getSourceNode(options);
+        final Source sourceNode = FnTransform.getSourceNode(options);
 
-        final boolean shouldCache = CACHE.get(xsltVersion, options).map(BooleanValue::getValue).orElse(true);
+        final boolean shouldCache = FnTransform.CACHE.get(xsltVersion, options).map(BooleanValue::getValue).orElse(true);
 
         if (xsltVersion == 1.0f || xsltVersion == 2.0f || xsltVersion == 3.0f) {
             try {
                 final Holder<SaxonApiException> compileException = new Holder<>();
-                final XsltExecutable xsltExecutable = XSLT_EXECUTABLE_CACHE.get(stylesheetBaseUri, key -> {
-                    final XsltCompiler xsltCompiler = SAXON_PROCESSOR.newXsltCompiler();
-                    xsltCompiler.setErrorListener(ERROR_LISTENER);
+                final XsltExecutable xsltExecutable = FnTransform.XSLT_EXECUTABLE_CACHE.get(stylesheetBaseUri, key -> {
+                    final XsltCompiler xsltCompiler = FnTransform.SAXON_PROCESSOR.newXsltCompiler();
+                    xsltCompiler.setErrorListener(FnTransform.ERROR_LISTENER);
 
                     try {
                         return xsltCompiler.compile(xsltSource._2); // .compilePackage //TODO(AR) need to implement support for xslt-packages
@@ -201,12 +201,9 @@ public class FnTransform extends BasicFunction {
         }
     }
 
-    private Source getSourceNode(final MapType options) {
-        final Optional<Node> sourceNode = SOURCE_NODE.get(options).map(NodeValue::getNode);
-        if (sourceNode.isPresent()) {
-            return new DOMSource(sourceNode.get());
-        }
-        return null;
+    private static Source getSourceNode(final MapType options) {
+        final Optional<Node> sourceNode = FnTransform.SOURCE_NODE.get(options).map(NodeValue::getNode);
+        return sourceNode.map(DOMSource::new).orElse(null);
     }
 
     /**
@@ -216,22 +213,22 @@ public class FnTransform extends BasicFunction {
      *     value is the source for accessing the stylesheet
      */
     private Tuple2<String, Source> getStylesheet(final MapType options) throws XPathException {
-        final Optional<String> stylesheetLocation = STYLESHEET_LOCATION.get(options).map(StringValue::getStringValue);
+        final Optional<String> stylesheetLocation = FnTransform.STYLESHEET_LOCATION.get(options).map(StringValue::getStringValue);
         if (stylesheetLocation.isPresent()) {
             //TODO(AR) handle database resources, see org.exist.xquery.functions.transform.EXistURIResolver.databaseSource
             return Tuple(stylesheetLocation.get(), new StreamSource(stylesheetLocation.get()));
         }
 
-        final Optional<Node> stylesheetNode = STYLESHEET_NODE.get(options).map(NodeValue::getNode);
+        final Optional<Node> stylesheetNode = FnTransform.STYLESHEET_NODE.get(options).map(NodeValue::getNode);
         if (stylesheetNode.isPresent()) {
             return Tuple(stylesheetNode.get().getBaseURI(), new DOMSource(stylesheetNode.get()));
         }
 
-        final Optional<String> stylesheetText = STYLESHEET_TEXT.get(options).map(StringValue::getStringValue);
+        final Optional<String> stylesheetText = FnTransform.STYLESHEET_TEXT.get(options).map(StringValue::getStringValue);
         if (stylesheetNode.isPresent()) {
             final String text = stylesheetText.get();
             final byte[] data = text.getBytes(UTF_8);
-            final long checksum = XX_HASH_64.hash(data, 0, data.length, XXHASH64_SEED);
+            final long checksum = FnTransform.XX_HASH_64.hash(data, 0, data.length, FnTransform.XXHASH64_SEED);
             return Tuple("checksum://" + checksum, new StringSource(stylesheetText.get()));
         }
 
@@ -276,8 +273,8 @@ public class FnTransform extends BasicFunction {
                 final XMLEvent event = eventReader.nextEvent();
                 if (event.getEventType() == XMLStreamConstants.START_ELEMENT) {
                     final StartElement startElement = event.asStartElement();
-                    if (QN_XSL_STYLESHEET.equals(startElement.getName())) {
-                        final Attribute version = startElement.getAttributeByName(QN_VERSION);
+                    if (FnTransform.QN_XSL_STYLESHEET.equals(startElement.getName())) {
+                        final Attribute version = startElement.getAttributeByName(FnTransform.QN_VERSION);
                         return Float.parseFloat(version.getValue());
                     }
                 }
