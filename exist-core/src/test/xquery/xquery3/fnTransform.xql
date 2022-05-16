@@ -25,12 +25,103 @@ module namespace fnx="http://exist-db.org/xquery/test/function_sort";
 
 declare namespace test="http://exist-db.org/xquery/xqsuite";
 
+declare variable $fnx:render := <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+
+                                    <xsl:param name="debug" select="false()"/>
+
+                                    <xsl:template match="/">
+                                        <xsl:if test="$debug">
+                                            <xsl:message>STARTED</xsl:message>
+                                        </xsl:if>
+                                        <body>
+                                            <xsl:copy-of select="works"/>
+                                        </body>
+                                    </xsl:template>
+
+                                </xsl:stylesheet>;
+
+declare variable $fnx:doc := <doc>
+                                 <works>
+                                  <employee name="Jane Doe 1" gender="female">
+                                   <empnum>E1</empnum>
+                                   <pnum>P1</pnum>
+                                   <hours>40</hours>
+                                  </employee>
+                                  <employee name = "John Doe 2" gender="male">
+                                   <empnum>E1</empnum>
+                                   <pnum>P2</pnum>
+                                   <hours>70</hours>
+                                   <hours>20</hours>Text data from Employee[2]
+                                  </employee>
+                                  <employee name = "Jane Doe 3" gender="female">
+                                   <empnum>E1</empnum>
+                                   <pnum>P3</pnum>
+                                   <hours>80</hours>
+                                  </employee>
+                                  <employee name= "John Doe 4" gender="male">
+                                   <empnum>E1</empnum>
+                                   <pnum>P4</pnum>
+                                   <hours>20</hours>
+                                   <hours>40</hours>
+                                  </employee>
+                                  <employee name= "Jane Doe 5" gender="female">
+                                   <empnum>E1</empnum>
+                                   <pnum>P5</pnum>
+                                   <hours>20</hours>
+                                   <hours>30</hours>
+                                  </employee>
+                                  <employee name= "John Doe 6" gender="male">
+                                   <empnum>E1</empnum>
+                                   <pnum>P6</pnum>
+                                   <hours>12</hours>
+                                  </employee>
+                                  <employee name= "Jane Doe 7" gender="female">
+                                   <empnum>E2</empnum>
+                                   <pnum>P1</pnum>
+                                   <hours>40</hours>
+                                  </employee>
+                                  <employee name= "John Doe 8" gender="male">
+                                   <empnum>E2</empnum>
+                                   <pnum>P2</pnum>
+                                   <hours>80</hours>
+                                  </employee>
+                                  <employee name= "Jane Doe 9" gender="female">
+                                   <empnum>E3</empnum>
+                                   <pnum>P2</pnum>
+                                   <hours>20</hours>
+                                  </employee>
+                                  <employee name= "John Doe 10" gender="male">
+                                   <empnum>E3</empnum>
+                                   <pnum>P2</pnum>
+                                   <hours>20</hours>
+                                  </employee>
+                                  <employee name= "Jane Doe 11" gender="female">
+                                   <empnum>E4</empnum>
+                                   <pnum>P2</pnum>
+                                   <hours>20</hours>
+                                  </employee>
+                                  <employee name= "John Doe 12" gender="male">
+                                   <empnum>E4</empnum>
+                                   <pnum>P4</pnum>
+                                   <hours>40</hours>
+                                   <overtime>
+                                     <day>Monday</day>
+                                     <day>Tuesday</day>
+                                   </overtime>
+                                  </employee>
+                                  <employee name= "Jane Doe 13" gender="female" type="FT">
+                                   <empnum>E4</empnum>
+                                   <pnum>P5</pnum>
+                                   <hours>80</hours>
+                                   <status>active</status>
+                                  </employee>
+                                 </works></doc>;
+
 declare
-    %test:assertTrue
-function testSort:integers_vs_integers() {
-    let $result := fn:transform(map {"stylesheet-location" : $render, "source-node" : fn:doc($uri)})
-    let $employee := count($result?output)
-    return employee > 0
+    %test:assertEquals("hello")
+function fnx:transform-1() {
+    let $result := fn:transform(map {"stylesheet-node" : $fnx:render, "source-node" : $fnx:doc})
+    return $result
 };
 
 

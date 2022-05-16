@@ -34,7 +34,7 @@ import org.apache.logging.log4j.Logger;
 import org.exist.dom.QName;
 import org.exist.dom.memtree.DocumentBuilderReceiver;
 import org.exist.dom.memtree.MemTreeBuilder;
-import org.exist.util.Base64Encoder;
+import org.exist.util.Holder;
 import org.exist.xquery.*;
 import org.exist.xquery.functions.array.ArrayType;
 import org.exist.xquery.functions.map.MapType;
@@ -56,17 +56,16 @@ import javax.xml.transform.Source;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamSource;
-import javax.xml.ws.Holder;
 import java.io.Reader;
 import java.io.StringReader;
-import java.io.StringWriter;
 import java.util.Optional;
 
 import static com.evolvedbinary.j8fu.tuple.Tuple.Tuple;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.exist.Namespaces.XSL_NS;
-import static org.exist.xquery.FunctionDSL.*;
-import static org.exist.xquery.functions.fn.FnModule.*;
+import static org.exist.xquery.FunctionDSL.param;
+import static org.exist.xquery.FunctionDSL.returnsOptMany;
+import static org.exist.xquery.functions.fn.FnModule.functionSignature;
 import static org.exist.xquery.functions.fn.FnTransform.Option.*;
 
 /**
