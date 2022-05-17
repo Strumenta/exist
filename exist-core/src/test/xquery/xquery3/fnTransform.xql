@@ -26,9 +26,7 @@ module namespace fnx="http://exist-db.org/xquery/test/function_sort";
 declare namespace test="http://exist-db.org/xquery/xqsuite";
 
 declare variable $fnx:render := <xsl:stylesheet version="2.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
-
                                     <xsl:param name="debug" select="false()"/>
-
                                     <xsl:template match="/">
                                         <xsl:if test="$debug">
                                             <xsl:message>STARTED</xsl:message>
@@ -37,11 +35,9 @@ declare variable $fnx:render := <xsl:stylesheet version="2.0" xmlns:xsl="http://
                                             <xsl:copy-of select="works"/>
                                         </body>
                                     </xsl:template>
-
                                 </xsl:stylesheet>;
 
-declare variable $fnx:doc := <doc>
-                                 <works>
+declare variable $fnx:doc := <doc><works>
                                   <employee name="Jane Doe 1" gender="female">
                                    <empnum>E1</empnum>
                                    <pnum>P1</pnum>
@@ -62,7 +58,7 @@ declare variable $fnx:doc := <doc>
                                    <empnum>E1</empnum>
                                    <pnum>P4</pnum>
                                    <hours>20</hours>
-                                   <hours>40</hours>
+                                   <hours>40</hours>Text data from Employee[4]
                                   </employee>
                                   <employee name= "Jane Doe 5" gender="female">
                                    <empnum>E1</empnum>
@@ -118,10 +114,24 @@ declare variable $fnx:doc := <doc>
                                  </works></doc>;
 
 declare
-    %test:assertEquals("hello")
+    %test:assertTrue
 function fnx:transform-1() {
     let $result := fn:transform(map {"stylesheet-node" : $fnx:render, "source-node" : $fnx:doc})
-    return $result
+    return $result?output instance of node()
+};
+
+declare
+    %test:assertTrue
+function fnx:transform-1a() {
+    let $result := fn:transform(map {"stylesheet-node" : $fnx:render, "source-node" : $fnx:doc, "delivery-format" : "serialized"})
+    return $result?output instance of xs:string
+};
+
+declare
+    %test:assertTrue
+function fnx:transform-1b() {
+    let $result := fn:transform(map {"stylesheet-node" : $fnx:render, "source-node" : $fnx:doc, "serialized" : "serialized"})
+    return $result?output instance of node()
 };
 
 

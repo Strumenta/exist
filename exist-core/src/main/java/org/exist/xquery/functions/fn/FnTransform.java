@@ -184,7 +184,7 @@ public class FnTransform extends BasicFunction {
 
                 final SAXDestination saxDestination = new SAXDestination(builderReceiver);
                 xslt30Transformer.applyTemplates(sourceNode, saxDestination);
-                return builder.getDocument();
+                return makeResultMap(xsltVersion, options, builder.getDocument());
 
             } catch (final SaxonApiException e) {
                 if (e.getErrorCode() != null) {
@@ -199,6 +199,15 @@ public class FnTransform extends BasicFunction {
         } else {
             throw new XPathException(this, ErrorCodes.FOXT0001, "xslt-version: " + xsltVersion + " is not supported.");
         }
+    }
+
+    private MapType makeResultMap(final float xsltVersion, final MapType options, final NodeValue outputDocument) {
+
+        final MapType outputMap = new MapType(context);
+        final StringValue outputKey = FnTransform.BASE_OUTPUT_URI.get(xsltVersion, options).orElse(new StringValue("output"));
+        outputMap.add(outputKey, outputDocument);
+
+        return outputMap;
     }
 
     private static Source getSourceNode(final MapType options) {
