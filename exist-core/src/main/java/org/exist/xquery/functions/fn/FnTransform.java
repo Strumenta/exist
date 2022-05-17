@@ -35,13 +35,17 @@ import org.exist.dom.QName;
 import org.exist.dom.memtree.DocumentBuilderReceiver;
 import org.exist.dom.memtree.MemTreeBuilder;
 import org.exist.util.Holder;
+import org.exist.util.serializer.XQuerySerializer;
 import org.exist.xquery.*;
 import org.exist.xquery.functions.array.ArrayType;
+import org.exist.xquery.functions.map.AbstractMapType;
 import org.exist.xquery.functions.map.MapType;
+import org.exist.xquery.util.SerializerUtils;
 import org.exist.xquery.value.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+import org.xml.sax.SAXException;
 
 import javax.annotation.Nullable;
 import javax.xml.stream.XMLEventReader;
@@ -56,9 +60,12 @@ import javax.xml.transform.Source;
 import javax.xml.transform.TransformerException;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamSource;
+import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.Optional;
+import java.util.Properties;
 
 import static com.evolvedbinary.j8fu.tuple.Tuple.Tuple;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -67,6 +74,7 @@ import static org.exist.xquery.FunctionDSL.param;
 import static org.exist.xquery.FunctionDSL.returnsOptMany;
 import static org.exist.xquery.functions.fn.FnModule.functionSignature;
 import static org.exist.xquery.functions.fn.FnTransform.Option.*;
+import static org.exist.xquery.functions.fn.FunSerialize.normalize;
 
 /**
  * Implementation of fn:transform.
@@ -201,13 +209,52 @@ public class FnTransform extends BasicFunction {
         }
     }
 
-    private MapType makeResultMap(final float xsltVersion, final MapType options, final NodeValue outputDocument) {
+    private MapType makeResultMap(final float xsltVersion, final MapType options, final NodeValue outputDocument) throws XPathException {
 
         final MapType outputMap = new MapType(context);
         final StringValue outputKey = FnTransform.BASE_OUTPUT_URI.get(xsltVersion, options).orElse(new StringValue("output"));
-        outputMap.add(outputKey, outputDocument);
+
+        final StringValue deliveryFormat = FnTransform.DELIVERY_FORMAT.get(xsltVersion, options).get();
+        final Sequence output;
+        switch (deliveryFormat.getStringValue()) {
+            case "serialized":
+                output = serializeOutput(FnTransform.SERIALIZATION_PARAMS.get(xsltVersion, options), outputDocument);
+                break;
+            case "raw":
+                throw new XPathException(this, FnModule.SENR0001, "\"raw\" output is not supported");
+            case "document":
+            default:
+                output = outputDocument;
+                break;
+        }
+        outputMap.add(outputKey, output);
 
         return outputMap;
+    }
+
+    /**
+     * If the output document is to be serialized, serialize it.
+     *
+     * @param serializationOptionsMap fromserialization parameters
+     * @param outputDocument the generated document to be serialized
+     * @return a {@link StringValue} which is the serialized value of the document
+     * @throws XPathException if serialization failed
+     */
+    private Sequence serializeOutput(final Optional<MapType> serializationOptionsMap, final NodeValue outputDocument) throws XPathException {
+        final Properties outputProperties = SerializerUtils.getSerializationOptions(this, serializationOptionsMap.orElse(new MapType(context)));
+        try(final StringWriter writer = new StringWriter()) {
+            final XQuerySerializer xqSerializer = new XQuerySerializer(context.getBroker(), outputProperties, writer);
+
+            Sequence seq = outputDocument;
+            if (xqSerializer.normalize()) {
+                seq = normalize(this, context, seq);
+            }
+
+            xqSerializer.serialize(seq);
+            return new StringValue(writer.toString());
+        } catch (final IOException | SAXException e) {
+            throw new XPathException(this, FnModule.SENR0001, e.getMessage());
+        }
     }
 
     private static Source getSourceNode(final MapType options) {
