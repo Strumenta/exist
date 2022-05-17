@@ -281,7 +281,7 @@ public class FnTransform extends BasicFunction {
         }
 
         final Optional<String> stylesheetText = FnTransform.STYLESHEET_TEXT.get(options).map(StringValue::getStringValue);
-        if (stylesheetNode.isPresent()) {
+        if (stylesheetText.isPresent()) {
             final String text = stylesheetText.get();
             final byte[] data = text.getBytes(UTF_8);
             final long checksum = FnTransform.XX_HASH_64.hash(data, 0, data.length, FnTransform.XXHASH64_SEED);
