@@ -25,6 +25,7 @@ package org.exist.xquery.functions.fn;
 import com.evolvedbinary.j8fu.tuple.Tuple2;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import io.lacuna.bifurcan.IEntry;
 import net.jpountz.xxhash.XXHash64;
 import net.jpountz.xxhash.XXHashFactory;
 import net.sf.saxon.Configuration;
@@ -64,6 +65,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.Iterator;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -126,7 +128,18 @@ public class FnTransform extends BasicFunction {
 
         final Tuple2<String, Source> xsltSource = getStylesheet(options);
 
+        final MapType stylesheetParams = FnTransform.STYLESHEET_PARAMS.get(options).orElse(new MapType(context));
+        for (final IEntry entry : stylesheetParams) {
+            if (!(entry.key() instanceof QNameValue)) {
+                throw new XPathException(this, ErrorCodes.FOXT0002, "Supplied stylesheet-param is not a valid xs:qname: " + entry);
+            }
+            if (!(entry.value() instanceof Sequence)) {
+                throw new XPathException(this, ErrorCodes.FOXT0002, "Supplied stylesheet-param is not a valid xs:sequence: " + entry);
+            }
+        }
+
         final float xsltVersion;
+        final StringValue xsltVersionParamKey = new StringValue("v");
         final Optional<DecimalValue> explicitXsltVersion = FnTransform.XSLT_VERSION.get(options);
         if (explicitXsltVersion.isPresent()) {
             try {
@@ -134,6 +147,10 @@ public class FnTransform extends BasicFunction {
             } catch (final XPathException e) {
                 throw new XPathException(this, ErrorCodes.FOXT0002, "Supplied xslt-version is not a valid xs:decimal: " + e.getMessage(), explicitXsltVersion.get(), e);
             }
+        } else if (stylesheetParams.contains(xsltVersionParamKey)) {
+            final AtomicValue versionNumber = stylesheetParams.get(xsltVersionParamKey).convertTo(Type.NUMBER);
+            final NumericValue version = (NumericValue)versionNumber;
+            xsltVersion = version.getFloat();
         } else {
             xsltVersion = getXsltVersion(xsltSource._2);
         }
@@ -146,6 +163,8 @@ public class FnTransform extends BasicFunction {
             stylesheetBaseUri = xsltSource._1;
         }
 
+        final String executableHash = Tuple(stylesheetBaseUri, stylesheetParams).toString();
+
         //TODO(AR) Saxon recommends to use a <code>StreamSource</code> or <code>SAXSource</code> instead of DOMSource for performance
         final Source sourceNode = FnTransform.getSourceNode(options);
 
@@ -154,9 +173,14 @@ public class FnTransform extends BasicFunction {
         if (xsltVersion == 1.0f || xsltVersion == 2.0f || xsltVersion == 3.0f) {
             try {
                 final Holder<SaxonApiException> compileException = new Holder<>();
-                final XsltExecutable xsltExecutable = FnTransform.XSLT_EXECUTABLE_CACHE.get(stylesheetBaseUri, key -> {
+                final XsltExecutable xsltExecutable = FnTransform.XSLT_EXECUTABLE_CACHE.get(executableHash, key -> {
                     final XsltCompiler xsltCompiler = FnTransform.SAXON_PROCESSOR.newXsltCompiler();
                     xsltCompiler.setErrorListener(FnTransform.ERROR_LISTENER);
+                    for (final IEntry entry : stylesheetParams) {
+                        final QName qKey = ((QNameValue) entry.key()).getQName();
+                        final XdmValue value = XdmValue.makeValue("2");
+                        xsltCompiler.setParameter(new net.sf.saxon.s9api.QName(qKey.getPrefix(), qKey.getLocalPart()), value);
+                    }
 
                     try {
                         return xsltCompiler.compile(xsltSource._2); // .compilePackage //TODO(AR) need to implement support for xslt-packages

@@ -169,6 +169,29 @@ function testTransform:transform-2() {
     return $result
 };
 
+declare
+    %test:assertFalse
+function testTransform:transform-2b() {
+    let $result := fn:contains(string($testTransform:result-transform-2//body),'sect3')
+    return $result
+};
+
+declare variable $testTransform:doc-3 := <doc>
+<xsl:stylesheet version='1.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'>
+    <xsl:param name='v'/>
+    <xsl:template match='/'>
+        <v><xsl:value-of select='$v'/></v>
+    </xsl:template>
+</xsl:stylesheet></doc>;
+
+declare
+    %test:assertEquals("<v>2</v>")
+function testTransform:transform-3() {
+    let $in := parse-xml("<dummy/>")
+    let $style := $testTransform:doc-3
+    let $result := ( fn:transform(map{"source-node":$in, "stylesheet-node":$style, "stylesheet-params": map { QName("","v"): "2" } } ) )?output
+    return string($result)
+};
 
 
 
