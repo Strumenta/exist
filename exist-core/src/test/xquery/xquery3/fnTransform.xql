@@ -176,13 +176,12 @@ function testTransform:transform-2b() {
     return $result
 };
 
-declare variable $testTransform:doc-3 := <doc>
-<xsl:stylesheet version='1.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'>
+declare variable $testTransform:doc-3 := <xsl:stylesheet version='1.0' xmlns:xsl='http://www.w3.org/1999/XSL/Transform'>
     <xsl:param name='v'/>
     <xsl:template match='/'>
         <v><xsl:value-of select='$v'/></v>
     </xsl:template>
-</xsl:stylesheet></doc>;
+</xsl:stylesheet>;
 
 declare
     %test:assertEquals("<v>2</v>")
@@ -190,7 +189,7 @@ function testTransform:transform-3() {
     let $in := parse-xml("<dummy/>")
     let $style := $testTransform:doc-3
     let $result := ( fn:transform(map{"source-node":$in, "stylesheet-node":$style, "stylesheet-params": map { QName("","v"): "2" } } ) )?output
-    return string($result)
+    return $result
 };
 
 

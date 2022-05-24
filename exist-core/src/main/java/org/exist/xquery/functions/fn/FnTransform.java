@@ -139,7 +139,6 @@ public class FnTransform extends BasicFunction {
         }
 
         final float xsltVersion;
-        final StringValue xsltVersionParamKey = new StringValue("v");
         final Optional<DecimalValue> explicitXsltVersion = FnTransform.XSLT_VERSION.get(options);
         if (explicitXsltVersion.isPresent()) {
             try {
@@ -147,10 +146,6 @@ public class FnTransform extends BasicFunction {
             } catch (final XPathException e) {
                 throw new XPathException(this, ErrorCodes.FOXT0002, "Supplied xslt-version is not a valid xs:decimal: " + e.getMessage(), explicitXsltVersion.get(), e);
             }
-        } else if (stylesheetParams.contains(xsltVersionParamKey)) {
-            final AtomicValue versionNumber = stylesheetParams.get(xsltVersionParamKey).convertTo(Type.NUMBER);
-            final NumericValue version = (NumericValue)versionNumber;
-            xsltVersion = version.getFloat();
         } else {
             xsltVersion = getXsltVersion(xsltSource._2);
         }
