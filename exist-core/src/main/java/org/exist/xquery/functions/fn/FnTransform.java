@@ -29,7 +29,6 @@ import io.lacuna.bifurcan.IEntry;
 import net.jpountz.xxhash.XXHash64;
 import net.jpountz.xxhash.XXHashFactory;
 import net.sf.saxon.Configuration;
-import net.sf.saxon.om.NodeInfo;
 import net.sf.saxon.s9api.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -65,7 +64,6 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.lang.reflect.ParameterizedType;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -213,9 +211,13 @@ public class FnTransform extends BasicFunction {
 
                 final SAXDestination saxDestination = new SAXDestination(builderReceiver);
                 if (initialTemplate.isPresent()) {
-                    final DocumentBuilder sourceBuilder = FnTransform.SAXON_PROCESSOR.newDocumentBuilder();
-                    final XdmNode xdmNode = sourceBuilder.build(sourceNode);
-                    xslt30Transformer.setGlobalContextItem(xdmNode);
+                    if (sourceNode != null) {
+                        final DocumentBuilder sourceBuilder = FnTransform.SAXON_PROCESSOR.newDocumentBuilder();
+                        final XdmNode xdmNode = sourceBuilder.build(sourceNode);
+                        xslt30Transformer.setGlobalContextItem(xdmNode);
+                    } else {
+                        xslt30Transformer.setGlobalContextItem(null);
+                    }
                     final QName qName = initialTemplate.get().getQName();
                     xslt30Transformer.callTemplate(
                             new net.sf.saxon.s9api.QName(qName.getPrefix() == null ? "" : qName.getPrefix(), qName.getNamespaceURI(), qName.getLocalPart()), saxDestination);
@@ -322,6 +324,7 @@ public class FnTransform extends BasicFunction {
     }
 
     private float getXsltVersion(final Source xsltStylesheet) throws XPathException {
+
         if (xsltStylesheet instanceof DOMSource) {
             return domExtractXsltVersion(xsltStylesheet);
         } else if (xsltStylesheet instanceof StreamSource) {

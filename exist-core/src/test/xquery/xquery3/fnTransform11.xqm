@@ -36,10 +36,26 @@ declare variable $testTransform:transform-11-xsl := <xsl:stylesheet xmlns:xsl='h
             </xsl:stylesheet>;
 
 declare
-    %test:assertError("err:XPTY0004")
-function testTransform:transform-11() {
+    %test:assertTrue
+function testTransform:transform-11-2() {
     let $style := $testTransform:transform-11-xsl
-    let $trn := transform(map{"stylesheet-node":$style, "initial-template": fn:QName('http://www.example.com','main') })
-    return $trn
+    let $result := transform(map{"stylesheet-node":$style, "initial-template": fn:QName('http://www.example.com','main') })
+    return map:contains($result, "output")
+};
+
+declare
+    %test:assertTrue
+function testTransform:transform-11-3() {
+    let $style := $testTransform:transform-11-xsl
+    let $result := transform(map{"stylesheet-node":$style, "initial-template": fn:QName('http://www.example.com','main') })
+    return $result?output instance of node()
+};
+
+declare
+    %test:assertTrue
+function testTransform:transform-11-4() {
+    let $style := $testTransform:transform-11-xsl
+    let $result := transform(map{"stylesheet-node":$style, "initial-template": fn:QName('http://www.example.com','main') })
+    return $result?output//out = 'that'
 };
 
