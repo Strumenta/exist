@@ -29,6 +29,7 @@ import io.lacuna.bifurcan.IEntry;
 import net.jpountz.xxhash.XXHash64;
 import net.jpountz.xxhash.XXHashFactory;
 import net.sf.saxon.Configuration;
+import net.sf.saxon.om.NodeInfo;
 import net.sf.saxon.s9api.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -157,6 +158,8 @@ public class FnTransform extends BasicFunction {
             stylesheetBaseUri = xsltSource._1;
         }
 
+        final Optional<QNameValue> initialTemplate = FnTransform.INITIAL_TEMPLATE.get(options);
+
         final String executableHash = Tuple(stylesheetBaseUri, stylesheetParams).toString();
 
         //TODO(AR) Saxon recommends to use a <code>StreamSource</code> or <code>SAXSource</code> instead of DOMSource for performance
@@ -209,7 +212,16 @@ public class FnTransform extends BasicFunction {
                 final DocumentBuilderReceiver builderReceiver = new DocumentBuilderReceiver(builder);
 
                 final SAXDestination saxDestination = new SAXDestination(builderReceiver);
-                xslt30Transformer.applyTemplates(sourceNode, saxDestination);
+                if (initialTemplate.isPresent()) {
+                    final DocumentBuilder sourceBuilder = FnTransform.SAXON_PROCESSOR.newDocumentBuilder();
+                    final XdmNode xdmNode = sourceBuilder.build(sourceNode);
+                    xslt30Transformer.setGlobalContextItem(xdmNode);
+                    final QName qName = initialTemplate.get().getQName();
+                    xslt30Transformer.callTemplate(
+                            new net.sf.saxon.s9api.QName(qName.getPrefix() == null ? "" : qName.getPrefix(), qName.getNamespaceURI(), qName.getLocalPart()), saxDestination);
+                } else {
+                    xslt30Transformer.applyTemplates(sourceNode, saxDestination);
+                }
                 return makeResultMap(xsltVersion, options, builder.getDocument());
 
             } catch (final SaxonApiException e) {
