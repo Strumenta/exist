@@ -136,14 +136,14 @@ function testTransform:transform-1b() {
 
 declare variable $testTransform:xsl-transform-2  := "<xsl:stylesheet xmlns:xsl='http://www.w3.org/1999/XSL/Transform' version='2.0'
                                                                  xmlns:app='http://www.example.com'>
-                                    <xsl:template name='app:main'>
-                                       <xsl:for-each select='//section'>
-                                          <xsl:result-document href='section{position()}.html'>
-                                             <xsl:value-of select='.' />
-                                          </xsl:result-document>
-                                       </xsl:for-each>
-                                    </xsl:template>
-                                 </xsl:stylesheet>";
+   <xsl:template name='app:main'>
+      <xsl:for-each select='//section'>
+         <xsl:result-document href='section{position()}.html'>
+            <xsl:value-of select='.' />
+         </xsl:result-document>
+      </xsl:for-each>
+   </xsl:template>
+</xsl:stylesheet>";
 
 declare variable $testTransform:xml-transform-2 :=
 "<doc>
@@ -152,15 +152,15 @@ declare variable $testTransform:xml-transform-2 :=
 </doc>";
 
 declare variable $testTransform:result-transform-2 := element {xs:QName('html')} {
-                                                                    element {xs:QName('body')} {
-                                                                        for $x in fn:transform(
-                                                                                    map{"xslt-version"    : 2.0,
-                                                                                        "stylesheet-text" : $testTransform:xsl-transform-2,
-                                                                                        "base-output-uri" : "http://www.w3.org/fots/fn/transform/output-doc.xml",
-                                                                                        "initial-template": fn:QName('http://www.example.com','main'),
-                                                                                        "source-node"     : fn:parse-xml($testTransform:xml-transform-2)})?*
-                                                                        return $x }
-                                                                    };
+    element {xs:QName('body')} {
+        for $x in fn:transform(
+                    map{"xslt-version"    : 2.0,
+                        "stylesheet-text" : $testTransform:xsl-transform-2,
+                        "base-output-uri" : "http://www.w3.org/fots/fn/transform/output-doc.xml",
+                        "initial-template": fn:QName('http://www.example.com','main'),
+                        "source-node"     : fn:parse-xml($testTransform:xml-transform-2)})?*
+        return $x }
+    };
 
 declare
     %test:assertTrue
@@ -192,6 +192,11 @@ function testTransform:transform-3() {
     return $result
 };
 
-
-
-
+declare
+    %test:assertEquals("<v>2</v>")
+function testTransform:transform-3a() {
+    let $in := parse-xml("<dummy/>")
+    let $style := $testTransform:doc-3
+    let $result := ( fn:transform(map{"source-node":$in, "stylesheet-node":$style, "stylesheet-params": map { QName("","v"): "2" } } ) )("output")
+    return $result
+};
