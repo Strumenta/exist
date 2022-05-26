@@ -42,6 +42,7 @@ import org.exist.xquery.functions.array.ArrayType;
 import org.exist.xquery.functions.map.MapType;
 import org.exist.xquery.util.SerializerUtils;
 import org.exist.xquery.value.*;
+import org.exist.xslt.EXistURIResolver;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -64,6 +65,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
@@ -155,6 +157,8 @@ public class FnTransform extends BasicFunction {
         } else {
             stylesheetBaseUri = xsltSource._1;
         }
+
+        System.err.println("Context:\n" + context);
 
         final Optional<QNameValue> initialTemplate = FnTransform.INITIAL_TEMPLATE.get(options);
 
@@ -295,6 +299,34 @@ public class FnTransform extends BasicFunction {
     }
 
     /**
+     * Resolve the stylesheet location.
+     * <p>
+     *     It may be a dynamically configured document.
+     *     Or a document within the database.
+     * </p>
+     * @param stylesheetLocation path or URI of stylesheet
+     * @return a source wrapping the contents of the stylesheet
+     * @throws XPathException if there is a problem resolving the location.
+     */
+    private Source resolveStylesheetLocation(final String stylesheetLocation) throws XPathException {
+        final Sequence document = context.getDynamicallyAvailableDocument(stylesheetLocation);
+        System.err.println("Dynamically resolve " + stylesheetLocation + " to " + (document == null ? "<null>" : document.getStringValue()));
+        if (document != null && document.hasOne() && Type.subTypeOf(document.getItemType(), Type.NODE)) {
+            System.err.println("Dynamically resolve " + stylesheetLocation + " succeeded.");
+            return new DOMSource((Node) document.itemAt(0));
+        }
+        final EXistURIResolver eXistURIResolver = new EXistURIResolver(
+                context.getBroker().getBrokerPool(), null);
+        try {
+            System.err.println("eXist URI resolve " + stylesheetLocation + "...");
+            return eXistURIResolver.resolve(stylesheetLocation, context.getBaseURI().getStringValue());
+        } catch (final TransformerException e) {
+            System.err.println("eXist URI resolve " + stylesheetLocation + " failed: " + e.getMessage());
+            throw new XPathException(this, ErrorCodes.FOXT0002, "Unable to resolve stylesheet location: " + stylesheetLocation + ": " + e.getMessage(), Sequence.EMPTY_SEQUENCE, e);
+        }
+    }
+
+    /**
      * Get the stylesheet.
      *
      * @return a Tuple whose first value is the stylesheet base uri, and whose second
@@ -303,8 +335,7 @@ public class FnTransform extends BasicFunction {
     private Tuple2<String, Source> getStylesheet(final MapType options) throws XPathException {
         final Optional<String> stylesheetLocation = FnTransform.STYLESHEET_LOCATION.get(options).map(StringValue::getStringValue);
         if (stylesheetLocation.isPresent()) {
-            //TODO(AR) handle database resources, see org.exist.xquery.functions.transform.EXistURIResolver.databaseSource
-            return Tuple(stylesheetLocation.get(), new StreamSource(stylesheetLocation.get()));
+            return Tuple(stylesheetLocation.get(), resolveStylesheetLocation(stylesheetLocation.get()));
         }
 
         final Optional<Node> stylesheetNode = FnTransform.STYLESHEET_NODE.get(options).map(NodeValue::getNode);
