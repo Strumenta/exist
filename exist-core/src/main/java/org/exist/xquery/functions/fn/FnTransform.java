@@ -67,9 +67,8 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Properties;
+import java.net.URI;
+import java.util.*;
 
 import static com.evolvedbinary.j8fu.tuple.Tuple.Tuple;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -218,6 +217,16 @@ public class FnTransform extends BasicFunction {
                 //final AnyURIValue baseURI = context.getBaseURI();
                 //xslt30Transformer.setBaseOutputURI(baseURI.getStringValue());
 
+                // Record the secondary result documents generated
+                final Map<URI, MemTreeBuilder> resultDocuments = new HashMap<>();
+                xslt30Transformer.setResultDocumentHandler(resultDocumentURI -> {
+                    final MemTreeBuilder resultBuilder = context.getDocumentBuilder();
+                    final DocumentBuilderReceiver resultBuilderReceiver = new DocumentBuilderReceiver(builder);
+                    resultDocuments.put(resultDocumentURI, resultBuilder);
+                    return new SAXDestination(resultBuilderReceiver);
+                });
+                System.err.println("resultURI: [" + resultDocuments.size() + "]");
+
                 final SAXDestination saxDestination = new SAXDestination(builderReceiver);
                 if (initialTemplate.isPresent()) {
                     if (sourceNode.isPresent()) {
@@ -237,7 +246,11 @@ public class FnTransform extends BasicFunction {
                     }
                     xslt30Transformer.applyTemplates(sourceNode.get(), saxDestination);
                 }
-                return makeResultMap(xsltVersion, options, builder.getDocument());
+                System.err.println("resultDocuments:");
+                for (final URI resultURI : resultDocuments.keySet()) {
+                    System.err.println("resultURI: " + resultURI);
+                }
+                return makeResultMap(xsltVersion, options, builder.getDocument(), resultDocuments);
 
             } catch (final SaxonApiException e) {
                 if (e.getErrorCode() != null) {
@@ -255,7 +268,7 @@ public class FnTransform extends BasicFunction {
         }
     }
 
-    private MapType makeResultMap(final float xsltVersion, final MapType options, final NodeValue outputDocument) throws XPathException {
+    private MapType makeResultMap(final float xsltVersion, final MapType options, final NodeValue outputDocument, final Map<URI, MemTreeBuilder> resultDocuments) throws XPathException {
 
         final MapType outputMap = new MapType(context);
         final AtomicValue outputKey;
@@ -266,22 +279,28 @@ public class FnTransform extends BasicFunction {
             outputKey = new StringValue("output");
         }
 
+        outputMap.add(outputKey, convertToDeliveryFormat(xsltVersion, options, outputDocument));
+
+        for (final Map.Entry<URI, MemTreeBuilder> resultDocument : resultDocuments.entrySet()) {
+            final Sequence value = convertToDeliveryFormat(xsltVersion, options, resultDocument.getValue().getDocument());
+            outputMap.add(new AnyURIValue(resultDocument.getKey()), value);
+        }
+
+        return outputMap;
+    }
+
+    private Sequence convertToDeliveryFormat(final float xsltVersion, final MapType options, final NodeValue document) throws XPathException {
+
         final StringValue deliveryFormat = FnTransform.DELIVERY_FORMAT.get(xsltVersion, options).get();
-        final Sequence output;
         switch (deliveryFormat.getStringValue()) {
             case "serialized":
-                output = serializeOutput(FnTransform.SERIALIZATION_PARAMS.get(xsltVersion, options), outputDocument);
-                break;
+                return serializeOutput(FnTransform.SERIALIZATION_PARAMS.get(xsltVersion, options), document);
             case "raw":
                 throw new XPathException(this, FnModule.SENR0001, "\"raw\" output is not supported");
             case "document":
             default:
-                output = outputDocument;
-                break;
+                return document;
         }
-        outputMap.add(outputKey, output);
-
-        return outputMap;
     }
 
     /**
