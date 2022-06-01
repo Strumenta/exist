@@ -237,7 +237,6 @@ public class FnTransform extends BasicFunction {
                     }
                     xslt30Transformer.applyTemplates(sourceNode.get(), saxDestination);
                 }
-                System.err.println("<<< DocumentBuilderReceiver");
                 return makeResultMap(xsltVersion, options, builder.getDocument());
 
             } catch (final SaxonApiException e) {
