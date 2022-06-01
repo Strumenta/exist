@@ -182,10 +182,13 @@ public class FnTransform extends BasicFunction {
                     }
 
                     try {
+                        xsltSource._2.setSystemId(context.getBaseURI().getStringValue());
                         return xsltCompiler.compile(xsltSource._2); // .compilePackage //TODO(AR) need to implement support for xslt-packages
                     } catch (final SaxonApiException e) {
                         compileException.value = e;
                         return null;
+                    } catch (final XPathException e) {
+                        throw new RuntimeException("Invalid base URI in context", e);
                     }
                 });
 
@@ -195,8 +198,6 @@ public class FnTransform extends BasicFunction {
                 }
 
                 final Xslt30Transformer xslt30Transformer = xsltExecutable.load30();
-
-//                xslt30Transformer.
 
                 // XdmValue xdmValue; //= xslt30Transformer.applyTemplates();
 //            Serializer serializer = processor.newSerializer();
@@ -212,12 +213,9 @@ public class FnTransform extends BasicFunction {
                 // TODO(AR) this is just for DOM results... need to handle other response types!
                 final MemTreeBuilder builder = context.getDocumentBuilder();
                 final DocumentBuilderReceiver builderReceiver = new DocumentBuilderReceiver(builder);
-                System.err.println(">>> DocumentBuilderReceiver [" +
-                        sourceNode.map(Source::getSystemId) + "]");
 
-                //TODO(AP) might need to do this later (depending on inputs)
+                //TODO(AP) might need to set the base output URI to pass some tests ? See specification
                 //final AnyURIValue baseURI = context.getBaseURI();
-                //System.err.println(">>> DocumentBuilderReceiver baseURI: " + baseURI);
                 //xslt30Transformer.setBaseOutputURI(baseURI.getStringValue());
 
                 final SAXDestination saxDestination = new SAXDestination(builderReceiver);
@@ -237,18 +235,7 @@ public class FnTransform extends BasicFunction {
                         // TODO (AP) OK if initial match selection is supplied instead, not yet implemented
                         throw new XPathException(this, ErrorCodes.FOXT0002, SOURCE_NODE.name + " not supplied");
                     }
-                    final DocumentBuilder sourceBuilder = FnTransform.SAXON_PROCESSOR.newDocumentBuilder();
-                    final AnyURIValue baseURI = context.getBaseURI();
-                    System.err.println("--- DocumentBuilder base URI [" + baseURI + "]");
-                    if (baseURI.toURI().isAbsolute()) {
-                        // Absolute or there's no point
-                        sourceBuilder.setBaseURI(context.getBaseURI().toURI());
-                    }
-                    final XdmNode xdmNode = sourceBuilder.build(sourceNode.get());
-                    System.err.println(">> xdmNode [" + xdmNode.getBaseURI() + "]");
-                    xslt30Transformer.applyTemplates(xdmNode, saxDestination);
-                    //TODO (AP) - replacing this line with the 3 above is bad but WIP
-                    //xslt30Transformer.applyTemplates(sourceNode, saxDestination);
+                    xslt30Transformer.applyTemplates(sourceNode.get(), saxDestination);
                 }
                 System.err.println("<<< DocumentBuilderReceiver");
                 return makeResultMap(xsltVersion, options, builder.getDocument());
