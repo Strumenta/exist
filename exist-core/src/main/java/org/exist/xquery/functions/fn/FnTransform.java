@@ -160,14 +160,12 @@ public class FnTransform extends BasicFunction {
             stylesheetBaseUri = xsltSource._1;
         }
 
-        //System.err.println("Context [Fntransform]:\n" + context);
-
         final Optional<QNameValue> initialTemplate = FnTransform.INITIAL_TEMPLATE.get(options);
 
         final String executableHash = Tuple(stylesheetBaseUri, stylesheetParams).toString();
 
         //TODO(AR) Saxon recommends to use a <code>StreamSource</code> or <code>SAXSource</code> instead of DOMSource for performance
-        final Source sourceNode = FnTransform.getSourceNode(options);
+        final Optional<Source> sourceNode = FnTransform.getSourceNode(options, context.getBaseURI());
 
         final boolean shouldCache = FnTransform.CACHE.get(xsltVersion, options).map(BooleanValue::getValue).orElse(true);
 
@@ -214,12 +212,19 @@ public class FnTransform extends BasicFunction {
                 // TODO(AR) this is just for DOM results... need to handle other response types!
                 final MemTreeBuilder builder = context.getDocumentBuilder();
                 final DocumentBuilderReceiver builderReceiver = new DocumentBuilderReceiver(builder);
+                System.err.println(">>> DocumentBuilderReceiver [" +
+                        sourceNode.map(Source::getSystemId) + "]");
+
+                //TODO(AP) might need to do this later (depending on inputs)
+                //final AnyURIValue baseURI = context.getBaseURI();
+                //System.err.println(">>> DocumentBuilderReceiver baseURI: " + baseURI);
+                //xslt30Transformer.setBaseOutputURI(baseURI.getStringValue());
 
                 final SAXDestination saxDestination = new SAXDestination(builderReceiver);
                 if (initialTemplate.isPresent()) {
-                    if (sourceNode != null) {
+                    if (sourceNode.isPresent()) {
                         final DocumentBuilder sourceBuilder = FnTransform.SAXON_PROCESSOR.newDocumentBuilder();
-                        final XdmNode xdmNode = sourceBuilder.build(sourceNode);
+                        final XdmNode xdmNode = sourceBuilder.build(sourceNode.get());
                         xslt30Transformer.setGlobalContextItem(xdmNode);
                     } else {
                         xslt30Transformer.setGlobalContextItem(null);
@@ -228,12 +233,24 @@ public class FnTransform extends BasicFunction {
                     xslt30Transformer.callTemplate(
                             new net.sf.saxon.s9api.QName(qName.getPrefix() == null ? "" : qName.getPrefix(), qName.getNamespaceURI(), qName.getLocalPart()), saxDestination);
                 } else {
-                    if (sourceNode == null) {
+                    if (!sourceNode.isPresent()) {
                         // TODO (AP) OK if initial match selection is supplied instead, not yet implemented
                         throw new XPathException(this, ErrorCodes.FOXT0002, SOURCE_NODE.name + " not supplied");
                     }
-                    xslt30Transformer.applyTemplates(sourceNode, saxDestination);
+                    final DocumentBuilder sourceBuilder = FnTransform.SAXON_PROCESSOR.newDocumentBuilder();
+                    final AnyURIValue baseURI = context.getBaseURI();
+                    System.err.println("--- DocumentBuilder base URI [" + baseURI + "]");
+                    if (baseURI.toURI().isAbsolute()) {
+                        // Absolute or there's no point
+                        sourceBuilder.setBaseURI(context.getBaseURI().toURI());
+                    }
+                    final XdmNode xdmNode = sourceBuilder.build(sourceNode.get());
+                    System.err.println(">> xdmNode [" + xdmNode.getBaseURI() + "]");
+                    xslt30Transformer.applyTemplates(xdmNode, saxDestination);
+                    //TODO (AP) - replacing this line with the 3 above is bad but WIP
+                    //xslt30Transformer.applyTemplates(sourceNode, saxDestination);
                 }
+                System.err.println("<<< DocumentBuilderReceiver");
                 return makeResultMap(xsltVersion, options, builder.getDocument());
 
             } catch (final SaxonApiException e) {
@@ -306,9 +323,9 @@ public class FnTransform extends BasicFunction {
         }
     }
 
-    private static Source getSourceNode(final MapType options) throws XPathException {
+    private static Optional<Source> getSourceNode(final MapType options, final AnyURIValue baseURI) throws XPathException {
         final Optional<Node> sourceNode = FnTransform.SOURCE_NODE.get(options).map(NodeValue::getNode);
-        return sourceNode.map(DOMSource::new).orElse(null);
+        return sourceNode.map(node -> new DOMSource(node, baseURI.getStringValue()));
     }
 
     /**
@@ -329,18 +346,14 @@ public class FnTransform extends BasicFunction {
             throw new XPathException(this, ErrorCodes.FODC0002,
                     "Can not access '" + stylesheetLocation + "'" + e.getMessage());
         }
-        System.err.println("Dynamically resolve " + stylesheetLocation + " to " + (document == null ? "<null>" : document.getStringValue()));
         if (document != null && document.hasOne() && Type.subTypeOf(document.getItemType(), Type.NODE)) {
-            System.err.println("Dynamically resolve " + stylesheetLocation + " succeeded.");
             return new DOMSource((Node) document.itemAt(0));
         }
         final EXistURIResolver eXistURIResolver = new EXistURIResolver(
                 context.getBroker().getBrokerPool(), null);
         try {
-            System.err.println("eXist URI resolve " + stylesheetLocation + "...");
             return eXistURIResolver.resolve(stylesheetLocation, context.getBaseURI().getStringValue());
         } catch (final TransformerException e) {
-            System.err.println("eXist URI resolve " + stylesheetLocation + " failed: " + e.getMessage());
             throw new XPathException(this, ErrorCodes.FOXT0002, "Unable to resolve stylesheet location: " + stylesheetLocation + ": " + e.getMessage(), Sequence.EMPTY_SEQUENCE, e);
         }
     }
