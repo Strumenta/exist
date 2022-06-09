@@ -68,6 +68,7 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 
 import static com.evolvedbinary.j8fu.tuple.Tuple.Tuple;
@@ -158,6 +159,7 @@ public class FnTransform extends BasicFunction {
         } else {
             stylesheetBaseUri = xsltSource._1;
         }
+        final AnyURIValue resolvedStylesheetBaseURI = resolveURI(new AnyURIValue(stylesheetBaseUri), context.getBaseURI());
 
         final Optional<QNameValue> initialTemplate = FnTransform.INITIAL_TEMPLATE.get(options);
 
@@ -181,7 +183,11 @@ public class FnTransform extends BasicFunction {
                     }
 
                     try {
-                        xsltSource._2.setSystemId(context.getBaseURI().getStringValue());
+                        if (!resolvedStylesheetBaseURI.isEmpty()) {
+                            xsltSource._2.setSystemId(resolvedStylesheetBaseURI.getStringValue());
+                        } else {
+                            xsltSource._2.setSystemId(context.getBaseURI().getStringValue());
+                        }
                         return xsltCompiler.compile(xsltSource._2); // .compilePackage //TODO(AR) need to implement support for xslt-packages
                     } catch (final SaxonApiException e) {
                         compileException.value = e;
@@ -198,24 +204,9 @@ public class FnTransform extends BasicFunction {
 
                 final Xslt30Transformer xslt30Transformer = xsltExecutable.load30();
 
-                // XdmValue xdmValue; //= xslt30Transformer.applyTemplates();
-//            Serializer serializer = processor.newSerializer();
-                //processor.newDocumentBuilder().newBuildingContentHandler()
-
-//                //TODO temp
-//                final StringWriter writer = new StringWriter();
-//                final Serializer serializer = SAXON_PROCESSOR.newSerializer(writer);
-//                xslt30Transformer.applyTemplates(sourceNode, serializer);
-//                return null;
-//                //TODO end temp
-
                 // TODO(AR) this is just for DOM results... need to handle other response types!
                 final MemTreeBuilder builder = context.getDocumentBuilder();
                 final DocumentBuilderReceiver builderReceiver = new DocumentBuilderReceiver(builder);
-
-                //TODO(AP) might need to set the base output URI to pass some tests ? See specification
-                //final AnyURIValue baseURI = context.getBaseURI();
-                //xslt30Transformer.setBaseOutputURI(baseURI.getStringValue());
 
                 // Record the secondary result documents generated
                 final Map<URI, MemTreeBuilder> resultDocuments = new HashMap<>();
@@ -225,7 +216,6 @@ public class FnTransform extends BasicFunction {
                     resultDocuments.put(resultDocumentURI, resultBuilder);
                     return new SAXDestination(resultBuilderReceiver);
                 });
-                System.err.println("resultURI: [" + resultDocuments.size() + "]");
 
                 final SAXDestination saxDestination = new SAXDestination(builderReceiver);
                 if (initialTemplate.isPresent()) {
@@ -245,10 +235,6 @@ public class FnTransform extends BasicFunction {
                         throw new XPathException(this, ErrorCodes.FOXT0002, SOURCE_NODE.name + " not supplied");
                     }
                     xslt30Transformer.applyTemplates(sourceNode.get(), saxDestination);
-                }
-                System.err.println("resultDocuments:");
-                for (final URI resultURI : resultDocuments.keySet()) {
-                    System.err.println("resultURI: " + resultURI);
                 }
                 return makeResultMap(xsltVersion, options, builder.getDocument(), resultDocuments);
 
@@ -364,6 +350,30 @@ public class FnTransform extends BasicFunction {
     }
 
     /**
+     * URI resolution, the core should be the same as for fn:resolve-uri
+     * @param relative
+     * @param base
+     * @return
+     * @throws XPathException
+     */
+    private AnyURIValue resolveURI(final AnyURIValue relative, final AnyURIValue base) throws XPathException {
+        final URI relativeURI;
+        final URI baseURI;
+        try {
+            relativeURI = new URI(relative.getStringValue());
+            baseURI = new URI(base.getStringValue() );
+        } catch (final URISyntaxException e) {
+            throw new XPathException(this, ErrorCodes.FORG0009, "unable to resolve a relative URI against a base URI in fn:transform(): " + e.getMessage(), null, e);
+        }
+        if (relativeURI.isAbsolute()) {
+            return relative;
+        } else {
+            return new AnyURIValue(baseURI.resolve(relativeURI));
+        }
+
+    }
+
+    /**
      * Get the stylesheet.
      *
      * @return a Tuple whose first value is the stylesheet base uri, and whose second
@@ -377,7 +387,8 @@ public class FnTransform extends BasicFunction {
 
         final Optional<Node> stylesheetNode = FnTransform.STYLESHEET_NODE.get(options).map(NodeValue::getNode);
         if (stylesheetNode.isPresent()) {
-            return Tuple(stylesheetNode.get().getBaseURI(), new DOMSource(stylesheetNode.get()));
+            final Node node = stylesheetNode.get();
+            return Tuple(node.getBaseURI(), new DOMSource(node));
         }
 
         final Optional<String> stylesheetText = FnTransform.STYLESHEET_TEXT.get(options).map(StringValue::getStringValue);
