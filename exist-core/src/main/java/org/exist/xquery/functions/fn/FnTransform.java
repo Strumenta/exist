@@ -413,24 +413,6 @@ public class FnTransform extends BasicFunction {
         throw new XPathException(this, ErrorCodes.FOXT0002, "Unable to extract version from XSLT, unrecognised source");
     }
 
-    private float domExtractXsltVersion0(final Source xsltStylesheet) throws XPathException {
-        Node node = ((DOMSource) xsltStylesheet).getNode();
-        if (node instanceof Document) {
-            node = ((Document) node).getDocumentElement();
-        }
-
-        if (node instanceof Element) {
-            final Element elem = (Element) node;
-            if (XSL_NS.equals(node.getNamespaceURI())
-                    && "stylesheet".equals(node.getLocalName())) {
-                final String version = elem.getAttribute("version");
-                return Float.parseFloat(version);
-            }
-        }
-
-        throw new XPathException(this, ErrorCodes.FOXT0002, "Unable to extract version from XSLT via DOM");
-    }
-
     private float domExtractXsltVersion(final Source xsltStylesheet) throws XPathException {
 
         Node node = ((DOMSource) xsltStylesheet).getNode();
