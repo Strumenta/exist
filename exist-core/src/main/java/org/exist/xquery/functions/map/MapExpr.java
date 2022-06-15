@@ -96,7 +96,9 @@ public class MapExpr extends AbstractExpression {
             }
         }
 
-        return new MapType(context, map.forked(), prevType);
+        MapType mapType = new MapType(context, map.forked(), prevType);
+        mapType.setExpression(this);
+        return mapType;
     }
 
     @Override

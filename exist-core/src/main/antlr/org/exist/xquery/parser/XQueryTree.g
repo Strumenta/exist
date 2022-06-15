@@ -3571,6 +3571,7 @@ throws XPathException, PermissionDeniedException, EXistException
 		t:MAP
 		{
 			MapExpr expr = new MapExpr(context);
+			expr.setLocation(mapConstr_AST_in.getLine(), mapConstr_AST_in.getColumn());
 			step = expr;
 		}
 		(

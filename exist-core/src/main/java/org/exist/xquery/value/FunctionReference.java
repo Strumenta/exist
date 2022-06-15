@@ -170,4 +170,25 @@ public class FunctionReference extends AtomicValue implements AutoCloseable {
     public AtomicValue atomize() throws XPathException {
         throw new XPathException(ErrorCodes.FOTY0013, "A function item other than an array cannot be atomized");
     }
+
+    /** the expression from which this value derives */
+    private Expression expression = null;
+
+    /**
+     * Gets the expression from which this value derives.
+     *
+     * @return  the expression from which this value derives
+     */
+    public Expression getExpression() {
+        return expression;
+    }
+
+    /**
+     * Sets the expression from which this value derives.
+     *
+     * @param   expression  the expression to use
+     */
+    public void setExpression(Expression expression) {
+        this.expression = expression;
+    }
 }
