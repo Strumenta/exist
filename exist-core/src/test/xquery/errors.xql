@@ -382,3 +382,17 @@ function et:element-type-error-reporting() {
     }
 
 };
+
+declare
+    %test:assertTrue
+function et:expression-inside-element-constructor() {
+    try {
+        element e1 { attribute a1 { fn:error(xs:QName("et:test")) } }
+    }
+    catch * {
+        exists($err:line-number) and
+        $err:line-number > 0 and
+        exists($err:column-number) and
+        $err:column-number > 0
+    }
+};
