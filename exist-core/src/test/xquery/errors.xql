@@ -331,7 +331,6 @@ function et:issue3473c() {
  :)
 declare
     %test:assertTrue
-    %test:pending("location info still missing")
 function et:subexpression-in-enclosed-expression-evaluates-to-map() {
     try {
         element test { 1, map {} }
@@ -346,7 +345,6 @@ function et:subexpression-in-enclosed-expression-evaluates-to-map() {
 
 declare
     %test:assertTrue
-    %test:pending("location info still missing")
 function et:enclosed-expression-evaluates-to-map() {
     try {
         element test { ( "a", map {} )[2] }
