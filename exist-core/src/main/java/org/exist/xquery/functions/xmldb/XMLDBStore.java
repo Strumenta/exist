@@ -43,9 +43,11 @@ import org.exist.util.MimeType;
 import org.exist.util.io.TemporaryFileManager;
 import org.exist.util.serializer.SAXSerializer;
 import org.exist.xmldb.EXistResource;
+import org.exist.xquery.ErrorCodes;
 import org.exist.xquery.FunctionSignature;
 import org.exist.xquery.XPathException;
 import org.exist.xquery.XQueryContext;
+import org.exist.xquery.functions.util.UtilModule;
 import org.exist.xquery.value.AnyURIValue;
 import org.exist.xquery.value.BinaryValue;
 import org.exist.xquery.value.FunctionReturnSequenceType;
@@ -171,6 +173,11 @@ public class XMLDBStore extends XMLDBAbstractCollectionManipulator {
                 }
 
             } else if (Type.subTypeOf(item.getType(), Type.ANY_URI)) {
+                final boolean isAnyUriDisabled = ((XMLDBModule) getParentModule()).isAnyUriDisabled();
+                if(isAnyUriDisabled) {
+                    throw new XPathException(ErrorCodes.ERROR, "xs:anyURI as $contents value for xmldb:store and xmldb:store-as-binary " +
+                            "function has been disabled by the eXist administrator in conf.xml");
+                }
                 try {
                     final URI uri = new URI(item.getStringValue());
                     resource = loadFromURI(collection, uri, docName, mimeType);
