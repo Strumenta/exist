@@ -25,24 +25,22 @@ module namespace testTransform="http://exist-db.org/xquery/test/function_transfo
 
 declare namespace test="http://exist-db.org/xquery/xqsuite";
 
-declare variable $testTransform:transform-53-xsl := document {
+declare variable $testTransform:transform-52-xsl := document {
     <xsl:stylesheet xmlns:xsl='http://www.w3.org/1999/XSL/Transform' version='3.0'>
-                    <xsl:template name='main'>
-                    <xsl:param name='template-param' select='&quot;old&quot;'/>
-                        <out>
-                            <xsl:value-of select='$template-param' />
-                        </out>
+                    <xsl:param name='static-param' static='yes' select='&quot;success&quot;'/>
+                    <xsl:param name='alt-param' static='yes' select='upper-case($static-param)'/>
+                    <xsl:template match='/'>
+                        <out><xsl:value-of select='$static-param'/><xsl:value-of select='$alt-param'/></out>
                     </xsl:template>
                 </xsl:stylesheet> };
 
 declare
-    %test:assertEquals("new")
-function testTransform:transform-53() {
-    let $xsl := $testTransform:transform-53-xsl
+    %test:assertEquals("\'HelloWorld\'")
+function testTransform:transform-52() {
+    let $xsl := $testTransform:transform-52-xsl
     let $result := fn:transform(map{"stylesheet-node":$xsl, "source-node":parse-xml("<doc>this</doc>"),
-                "initial-template": fn:QName('','main'),
-                "template-params": map{QName('','template-param'):"new"}
+                "static-params":map{QName('','static-param'):"Hello", QName('','alt-param'):"World"}
                 })
-    return $result?output//out/text()
+    return $result?output//out
 };
 

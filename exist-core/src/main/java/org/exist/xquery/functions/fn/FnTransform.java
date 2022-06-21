@@ -132,7 +132,7 @@ public class FnTransform extends BasicFunction {
         final Options options = new Options((MapType) args[0].itemAt(0));
 
         final String executableHash = Tuple(options.resolvedStylesheetBaseURI, options
-                .stylesheetParams).toString();
+                .stylesheetParams, options.staticParams).toString();
 
         //TODO(AR) Saxon recommends to use a <code>StreamSource</code> or <code>SAXSource</code> instead of DOMSource for performance
         final Optional<Source> sourceNode = FnTransform.getSourceNode(options.sourceNode, context.getBaseURI());
@@ -143,6 +143,11 @@ public class FnTransform extends BasicFunction {
                 final XsltExecutable xsltExecutable = FnTransform.XSLT_EXECUTABLE_CACHE.get(executableHash, key -> {
                     final XsltCompiler xsltCompiler = FnTransform.SAXON_PROCESSOR.newXsltCompiler();
                     xsltCompiler.setErrorListener(FnTransform.ERROR_LISTENER);
+
+                    for (final Map.Entry<net.sf.saxon.s9api.QName, XdmValue> entry : options.staticParams.entrySet()) {
+                        xsltCompiler.setParameter(entry.getKey(), entry.getValue());
+                    }
+
                     for (final IEntry entry : options.stylesheetParams) {
                         final QName qKey = ((QNameValue) entry.key()).getQName();
                         final XdmValue value = XdmValue.makeValue("2");
@@ -535,8 +540,8 @@ public class FnTransform extends BasicFunction {
             Type.MAP,"serialization-params", v1_0, v2_0, v3_0);
     private static final Option<NodeValue> SOURCE_NODE = new Option<>(
             Type.NODE,"source-node", v1_0, v2_0, v3_0);
-    private static final Option<NodeValue> STATIC_PARAMS = new Option<>(
-            Type.NODE,"static-params", v3_0);
+    private static final Option<MapType> STATIC_PARAMS = new Option<>(
+            Type.MAP,"static-params", v3_0);
     private static final Option<StringValue> STYLESHEET_BASE_URI = new Option<>(
             Type.STRING, "stylesheet-base-uri", v1_0, v2_0, v3_0);
     private static final Option<StringValue> STYLESHEET_LOCATION = new Option<>(
@@ -690,14 +695,33 @@ public class FnTransform extends BasicFunction {
      */
     private class Options {
 
+        private Map<net.sf.saxon.s9api.QName, XdmValue> readParamsMap(final Optional<MapType> option, final String name) throws XPathException {
+
+            final Map<net.sf.saxon.s9api.QName, XdmValue> result = new HashMap<>();
+
+            final MapType paramsMap = option.orElse(new MapType(context));
+            for (final IEntry<AtomicValue, Sequence> entry : paramsMap) {
+                final AtomicValue key = entry.key();
+                if (!(key instanceof QNameValue)) {
+                    throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied " + name + " is not a valid xs:qname: " + entry);
+                }
+                if (!(entry.value() instanceof Sequence)) {
+                    throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied " + name + " is not a valid xs:sequence: " + entry);
+                }
+                result.put(Convert.ToSaxon.of((QNameValue) key), Convert.ToSaxon.of(entry.value()));
+            }
+            return result;
+        }
+
         final Tuple2<String, Source> xsltSource;
         final MapType stylesheetParams;
+        final Map<net.sf.saxon.s9api.QName, XdmValue> staticParams;
         final float xsltVersion;
         final AnyURIValue resolvedStylesheetBaseURI;
         final Optional<QNameValue> initialFunction;
         final Optional<ArrayType> functionParams;
-        final Map<net.sf.saxon.s9api.QName, XdmValue> templateParams = new HashMap<>();
-        final Map<net.sf.saxon.s9api.QName, XdmValue> tunnelParams = new HashMap<>();
+        final Map<net.sf.saxon.s9api.QName, XdmValue> templateParams;
+        final Map<net.sf.saxon.s9api.QName, XdmValue> tunnelParams;
         final Optional<QNameValue> initialTemplate;
         final Optional<NodeValue> sourceNode;
         final Optional<BooleanValue> shouldCache;
@@ -743,29 +767,9 @@ public class FnTransform extends BasicFunction {
 
             initialTemplate = FnTransform.INITIAL_TEMPLATE.get(options);
 
-            final MapType templateParamsMap = FnTransform.TEMPLATE_PARAMS.get(options).orElse(new MapType(context));
-            for (final IEntry<AtomicValue, Sequence> entry : templateParamsMap) {
-                final AtomicValue key = entry.key();
-                if (!(key instanceof QNameValue)) {
-                    throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied template-param is not a valid xs:qname: " + entry);
-                }
-                if (!(entry.value() instanceof Sequence)) {
-                    throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied template-param is not a valid xs:sequence: " + entry);
-                }
-                templateParams.put(Convert.ToSaxon.of((QNameValue) key), Convert.ToSaxon.of(entry.value()));
-            }
-
-            final MapType tunnelParamsMap = FnTransform.TUNNEL_PARAMS.get(options).orElse(new MapType(context));
-            for (final IEntry<AtomicValue, Sequence> entry : tunnelParamsMap) {
-                final AtomicValue key = entry.key();
-                if (!(key instanceof QNameValue)) {
-                    throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied tunnel-param is not a valid xs:qname: " + entry);
-                }
-                if (!(entry.value() instanceof Sequence)) {
-                    throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied tunnel-param is not a valid xs:sequence: " + entry);
-                }
-                tunnelParams.put(Convert.ToSaxon.of((QNameValue) key), Convert.ToSaxon.of(entry.value()));
-            }
+            templateParams = readParamsMap(FnTransform.TEMPLATE_PARAMS.get(options), FnTransform.TEMPLATE_PARAMS.name.getStringValue());
+            tunnelParams = readParamsMap(FnTransform.TUNNEL_PARAMS.get(options), FnTransform.TUNNEL_PARAMS.name.getStringValue());
+            staticParams = readParamsMap(FnTransform.STATIC_PARAMS.get(options), FnTransform.STATIC_PARAMS.name.getStringValue());
 
             sourceNode = FnTransform.SOURCE_NODE.get(options);
 
