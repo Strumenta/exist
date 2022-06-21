@@ -185,16 +185,8 @@ public class FnTransform extends BasicFunction {
                     return new SAXDestination(resultBuilderReceiver);
                 });
 
-                final Map<net.sf.saxon.s9api.QName, XdmValue> templateParams = new HashMap<>();
-                for (final IEntry<AtomicValue, Sequence> entry : options.templateParams) {
-                    final AtomicValue key = entry.key();
-                    if (!(key instanceof QNameValue)) {
-                        throw new XPathException(ErrorCodes.XPTY0004,
-                                "Type error in " + TEMPLATE_PARAMS.name + ", " + key + ": expected " + Type.getTypeName(Type.QNAME) + ", got " + Type.getTypeName(key.getType()));
-                    }
-                    templateParams.put(Convert.ToSaxon.of((QNameValue) key), Convert.ToSaxon.of(entry.value()));
-                }
-                xslt30Transformer.setInitialTemplateParameters(templateParams, false);
+                xslt30Transformer.setInitialTemplateParameters(options.templateParams, false);
+                xslt30Transformer.setInitialTemplateParameters(options.tunnelParams, true);
 
                 final SAXDestination saxDestination = new SAXDestination(builderReceiver);
                 if (options.initialFunction.isPresent()) {
@@ -704,7 +696,8 @@ public class FnTransform extends BasicFunction {
         final AnyURIValue resolvedStylesheetBaseURI;
         final Optional<QNameValue> initialFunction;
         final Optional<ArrayType> functionParams;
-        final MapType templateParams;
+        final Map<net.sf.saxon.s9api.QName, XdmValue> templateParams = new HashMap<>();
+        final Map<net.sf.saxon.s9api.QName, XdmValue> tunnelParams = new HashMap<>();
         final Optional<QNameValue> initialTemplate;
         final Optional<NodeValue> sourceNode;
         final Optional<BooleanValue> shouldCache;
@@ -749,14 +742,29 @@ public class FnTransform extends BasicFunction {
             functionParams = FnTransform.FUNCTION_PARAMS.get(options);
 
             initialTemplate = FnTransform.INITIAL_TEMPLATE.get(options);
-            templateParams = FnTransform.TEMPLATE_PARAMS.get(options).orElse(new MapType(context));
-            for (final IEntry<AtomicValue, Sequence> entry : templateParams) {
-                if (!(entry.key() instanceof QNameValue)) {
+
+            final MapType templateParamsMap = FnTransform.TEMPLATE_PARAMS.get(options).orElse(new MapType(context));
+            for (final IEntry<AtomicValue, Sequence> entry : templateParamsMap) {
+                final AtomicValue key = entry.key();
+                if (!(key instanceof QNameValue)) {
                     throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied template-param is not a valid xs:qname: " + entry);
                 }
                 if (!(entry.value() instanceof Sequence)) {
                     throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied template-param is not a valid xs:sequence: " + entry);
                 }
+                templateParams.put(Convert.ToSaxon.of((QNameValue) key), Convert.ToSaxon.of(entry.value()));
+            }
+
+            final MapType tunnelParamsMap = FnTransform.TUNNEL_PARAMS.get(options).orElse(new MapType(context));
+            for (final IEntry<AtomicValue, Sequence> entry : tunnelParamsMap) {
+                final AtomicValue key = entry.key();
+                if (!(key instanceof QNameValue)) {
+                    throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied tunnel-param is not a valid xs:qname: " + entry);
+                }
+                if (!(entry.value() instanceof Sequence)) {
+                    throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied tunnel-param is not a valid xs:sequence: " + entry);
+                }
+                tunnelParams.put(Convert.ToSaxon.of((QNameValue) key), Convert.ToSaxon.of(entry.value()));
             }
 
             sourceNode = FnTransform.SOURCE_NODE.get(options);
