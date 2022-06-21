@@ -72,10 +72,7 @@ import java.io.StringReader;
 import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Properties;
+import java.util.*;
 
 import static com.evolvedbinary.j8fu.tuple.Tuple.Tuple;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -188,6 +185,17 @@ public class FnTransform extends BasicFunction {
                     return new SAXDestination(resultBuilderReceiver);
                 });
 
+                final Map<net.sf.saxon.s9api.QName, XdmValue> templateParams = new HashMap<>();
+                for (final IEntry<AtomicValue, Sequence> entry : options.templateParams) {
+                    final AtomicValue key = entry.key();
+                    if (!(key instanceof QNameValue)) {
+                        throw new XPathException(ErrorCodes.XPTY0004,
+                                "Type error in " + TEMPLATE_PARAMS.name + ", " + key + ": expected " + Type.getTypeName(Type.QNAME) + ", got " + Type.getTypeName(key.getType()));
+                    }
+                    templateParams.put(Convert.ToSaxon.of((QNameValue) key), Convert.ToSaxon.of(entry.value()));
+                }
+                xslt30Transformer.setInitialTemplateParameters(templateParams, false);
+
                 final SAXDestination saxDestination = new SAXDestination(builderReceiver);
                 if (options.initialFunction.isPresent()) {
                     final QName qName = options.initialFunction.get().getQName();
@@ -206,6 +214,7 @@ public class FnTransform extends BasicFunction {
                     } else {
                         xslt30Transformer.setGlobalContextItem(null);
                     }
+
                     final QName qName = options.initialTemplate.get().getQName();
                     //TODO (AP) - Implement complete conversion in the {@link Convert} class
                     //TODO (AP) - The saxDestination conversion loses type information in some cases
@@ -695,6 +704,7 @@ public class FnTransform extends BasicFunction {
         final AnyURIValue resolvedStylesheetBaseURI;
         final Optional<QNameValue> initialFunction;
         final Optional<ArrayType> functionParams;
+        final MapType templateParams;
         final Optional<QNameValue> initialTemplate;
         final Optional<NodeValue> sourceNode;
         final Optional<BooleanValue> shouldCache;
@@ -739,6 +749,15 @@ public class FnTransform extends BasicFunction {
             functionParams = FnTransform.FUNCTION_PARAMS.get(options);
 
             initialTemplate = FnTransform.INITIAL_TEMPLATE.get(options);
+            templateParams = FnTransform.TEMPLATE_PARAMS.get(options).orElse(new MapType(context));
+            for (final IEntry<AtomicValue, Sequence> entry : templateParams) {
+                if (!(entry.key() instanceof QNameValue)) {
+                    throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied template-param is not a valid xs:qname: " + entry);
+                }
+                if (!(entry.value() instanceof Sequence)) {
+                    throw new XPathException(FnTransform.this, ErrorCodes.FOXT0002, "Supplied template-param is not a valid xs:sequence: " + entry);
+                }
+            }
 
             sourceNode = FnTransform.SOURCE_NODE.get(options);
 
