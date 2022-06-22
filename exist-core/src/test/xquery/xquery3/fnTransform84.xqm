@@ -19,6 +19,7 @@
  : License along with this library; if not, write to the Free Software
  : Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  :)
+ 
 xquery version "3.1";
 
 module namespace testTransform="http://exist-db.org/xquery/test/function_transform";
