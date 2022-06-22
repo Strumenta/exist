@@ -46,7 +46,7 @@ declare
 function testTransform:transform-83() {
     let $xsl := $testTransform:transform-83-xsl
     let $result := fn:transform(map{"stylesheet-node":$xsl,
-                               "initial-match-selection": fn:doc('file://Users/alan/swProjects/evolvedBinary/exist-xqts-runner/work/qt3tests-master/docs/works-mod.xml')
-                               })
-    return count($result//employee)
+        "initial-match-selection": fn:doc('file://Users/alan/swProjects/evolvedBinary/exist-xqts-runner/work/qt3tests-master/docs/works-mod.xml')
+    })
+    return count($result?output//employee)
 };
